@@ -333,10 +333,10 @@ release:
   - `-s, --script <path>`：显式指定部署脚本路径（覆盖 `leoms.yml`）。
   - `-d, --dry-run`：模拟部署流程，不实际执行脚本。
 
-### 6. 可视化工作台与桌面 Studio (Visual Studio)
+### 6. 可视化工作台与桌面 Studio (Visual Studio & Desktop Hub)
 
 #### `leoms ui [subcommand]`
-启动基于 Web / Tauri 的图形化控制台，直观查看资产大盘、DAG 依赖拓扑图谱及交互式任务执行：
+启动 Web 图形化控制台，直观查看资产大盘、DAG 依赖拓扑图谱及交互式任务执行：
 ```bash
 # 1. 启动前台服务并在默认浏览器打开（若后台已有服务，自动唤起浏览器并立即释放终端）
 leoms ui
@@ -351,12 +351,44 @@ leoms ui status
 leoms ui stop
 ```
 - **选项**：
-  - `-d, --daemon`：在后台以守护进程模式运行（适合日常开发与桌面端）。
+  - `-d, --daemon`：在后台以守护进程模式运行。
   - `--status`：查看后台服务运行健康度与 PID。
   - `--stop`：停止正在后台运行的 leoms workbench 服务。
   - `-p, --port <number>`：指定服务端口（默认: `3200`）。
   - `-H, --host <host>`：指定绑定主机（默认: `localhost`）。
   - `--no-open`：启动后不自动在浏览器中打开页面。
+
+#### `leoms desk [subcommand]` (别名: `leoms desktop`)
+通用跨平台桌面端编排器。专为 **WSL 存储源码 + Windows 宿主原生窗口与打包** 打造，开发者无需在两套系统间来回切换：
+```bash
+# 1. 启动原生桌面端开发调试窗口（自动在 Windows 桌面呼出原生窗口）
+leoms desk dev
+# 或针对工作区指定项目启动
+leoms desk dev -p <project-name>
+
+# 2. 打包 Windows 生产安装包（.exe / .msi）
+leoms desk build
+# 或针对指定项目打包
+leoms desk build -p <project-name>
+
+# 3. 桌面端跨系统桥接与编译环境体检
+leoms desk doctor
+```
+- **核心特性**：
+  - **单终端以 WSL 为中心**：直接在 Linux/WSL 终端敲命令，自动桥接 Windows 宿主调用原生 Rust 编译器，免除跨环境切换烦恼。
+  - **杜绝跨端文件冲突与锁死**：Node 依赖与构建留在 WSL，Windows 宿主仅负责 Rust 原生外壳编译，编译缓存自动重定向至 Windows 本地 SSD 缓存目录，彻底解决跨网络文件系统（9P/SMB）缓慢与文件锁死难题。
+  - **伴生服务按需纳管**：普通纯前端桌面应用开箱即用，零额外配置；具有伴生服务的复杂桌面项目，只需在 `package.json` 中声明 `leoms.desktop.companion`，即可享受自动伴生拉起与进程守护：
+    ```json
+    "leoms": {
+      "desktop": {
+        "companion": {
+          "command": "pnpm dev ui -p 3200 --no-open",
+          "port": 3200,
+          "healthCheck": "http://localhost:3200/api/health"
+        }
+      }
+    }
+    ```
 
 ---
 
@@ -381,7 +413,7 @@ leoms ui stop
 
 ```text
 my-workspace/
-├── apps/                 # 独立业务应用服务（Node / PHP Web 应用）
+├── apps/                 # 独立业务应用服务（Node / PHP Web 应用、桌面应用）
 │   ├── web-portal/       # 前端应用 (独立 Git 仓库)
 │   └── order-api/        # PHP 接口应用 (独立 Git 仓库)
 ├── packages/             # 跨项目公共 npm 包 (TypeScript / React / 工具库)
@@ -394,8 +426,10 @@ my-workspace/
 │   └── composer/
 │       └── config.json   # 自动生成的顶级 path 映射，不侵入子项目
 ├── pnpm-workspace.yaml   # 工作区 Node 拓扑定义
-└── leoms.yml             # leoms 全局配置（可选）
+└── leoms.yml             # leoms 全局配置（可选，支持自定义扩展目录分类）
 ```
+
+> 💡 **自定义目录扩展**：除了标准的 `apps`、`packages`、`libs` 外，若团队有自定义目录分类，可在 `leoms.yml` 中通过 `categories:` 声明别名与展示名，无需入侵核心代码即可无缝接入控制台与体检门禁。
 
 ---
 

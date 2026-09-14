@@ -34,76 +34,71 @@ pnpm install
 | 分类 | 脚本命令 | 底层执行动作 | 适用场景与详细说明 |
 | :--- | :--- | :--- | :--- |
 | **🚀 运行与调试** | `pnpm dev [args...]` | `tsx src/index.ts` | **CLI 零编译实时调试**：直接读取 TS 源码执行，支持任意透传参数（如 `pnpm dev status`、`pnpm dev check -a`）。 |
-| | `pnpm dev:ui` | `vite` | **前端独立 HMR 调试**：单独启动 Vite 开发服务器（`http://localhost:5173`），支持热重载，用于界面开发。 |
-| | `pnpm dev:desktop` | `tauri dev` | **桌面端原生窗口调试**：自动拉起 Vite 前端并启动 Tauri 原生窗口，适合测试桌面端原生桥接能力。 |
+| | `pnpm dev:ui` | `vite` | **前端独立 HMR 调试**：单独启动 Vite 开发服务器（`http://localhost:5173`），支持热重载，用于纯 Web 界面开发。 |
+| | `pnpm dev:desktop` | `leoms desk dev` | **桌面端原生窗口调试**：在 WSL 中直接执行，自动调度 Windows 宿主 Rust 并拉起原生轻量窗口，支持热更新与伴生服务守护。 |
 | | `pnpm start [args...]` | `node ./bin/leoms.js` | **生产产物本地模拟**：以类似真实全局安装的方式执行 `dist/` 编译产物，测试发布前的运行表现。 |
 | **📦 编译与打包** | `pnpm build:cli` | `tsup` | **单编 CLI / 服务端**：使用 tsup 极速编译 TypeScript 至 `dist/index.js`（耗时仅数十毫秒）。 |
 | | `pnpm build:ui` | `tsc -p tsconfig.ui.json && vite build` | **单编前端静态产物**：先执行前端专属类型检查，再使用 Vite 打包 SPA 静态文件至 `dist/ui`。 |
 | | `pnpm build` | `pnpm build:cli && pnpm build:ui` | **全量联合构建**：发布前或验证完整产物时执行，同时打包 CLI 与前端 UI。 |
-| | `pnpm build:desktop` | `tauri build` | **打包桌面端分发安装包**：调用 Rust 编译器将前端与原生壳打包为 Windows 安装包（`.msi` / `.exe`）。 |
+| | `pnpm build:desktop` | `leoms desk build` | **打包 Windows 桌面分发包**：WSL 构建前端 + 调度 Windows 侧 Rust 打包，产物自动归集至 `dist/desktop/`。 |
 | **🛡️ 质检与工具** | `pnpm typecheck` | `tsc --noEmit && tsc -p tsconfig.ui.json` | **双层 TS 类型安全自检**：分别使用两种不同的 tsconfig 严格校验 CLI（NodeNext）与前端（DOM），防止类型混淆。 |
-| | `pnpm tauri <args>` | `tauri` | **Tauri CLI 原生透传**：直接调用 Tauri 工具链（如 `pnpm tauri info` 检查环境、`pnpm tauri icon` 生成各尺寸图标）。 |
+| | `pnpm desk:doctor` | `leoms desk doctor` | **跨平台桌面工具链体检**：诊断 Node、pnpm、WSL 桥接、Windows PowerShell、Rust 及端口就绪状态。 |
+| | `pnpm tauri <args>` | `tauri` | **Tauri CLI 原生透传**：直接调用 Tauri 工具链（如 `pnpm tauri info` 检查环境、`pnpm tauri icon` 生成图标）。 |
 
 ---
 
----
+### 3. WSL + Windows 原生桌面跨平台协同架构 (推荐工作流)
 
-### 3. 按「目标端与宿主环境」分类速查 (推荐开发必读)
+在 **WSL 存储源码 + Windows 桌面端原生窗口** 混合模式下，传统方案需要在两个系统终端来回切换，且极易导致 Linux ELF 与 Windows PE 的 `node_modules` 发生踩踏损坏。
 
-在 **WSL 存储源码 + Windows 桌面端混合开发** 模式下，明确指令应当在哪个系统终端运行至关重要：
+`leoms` 独创了 **以 WSL 为中心的无缝桥接架构**，开发者 **无需在 Windows 终端中做任何切换**：
 
 ```
                     ┌────────────────────────────────────────────────────────┐
-                    │ 🐧 WSL / Linux 终端运行（底层逻辑、算法、Web UI 与编译）│
-                    │ • CLI 调试：pnpm dev [args...]                         │
-                    │ • Web 调试：pnpm dev:ui                                │
-                    │ • 产物构建：pnpm build:cli / build:ui / build           │
-                    │ • 质量检查：pnpm typecheck / start                     │
+                    │ 🐧 开发者在 WSL / Linux 终端工作（单一终端，无需切换） │
+                    │                                                        │
+                    │ • 执行 pnpm dev:desktop (或 leoms desk dev)             │
+                    │   ├── ① 启动 WSL 本地 Vite 前端 HMR (端口 5173)        │
+                    │   ├── ② 启动 WSL 本地伴生服务 (若 package.json 有声明) │
+                    │   └── ③ 跨进程调度 Windows 宿主 powershell.exe:        │
+                    │         └─ cargo tauri dev (Windows Rust 编译原生窗口) │
                     └──────────────────────────┬─────────────────────────────┘
-                                               │
+                                               │ (Windows 原生窗口即刻弹出)
                                                ▼
                     ┌────────────────────────────────────────────────────────┐
-                    │ 🪟 Windows 宿主终端运行（原生窗口交互、打包 Windows 安装包）│
-                    │ • 桌面调试：pnpm dev:desktop                           │
-                    │ • 桌面打包：pnpm build:desktop                         │
-                    │ • 环境检查：pnpm tauri info                            │
+                    │ 🪟 Windows 宿主（仅提供原生窗口渲染与 Rust 编译）      │
+                    │ • 原生 Win32 + WebView2 渲染容器                       │
+                    │ • Rust 编译缓存自动重定向到 Windows SSD 本地缓存目录   │
+                    │ • 零 Windows node_modules 污染，完全杜绝符号链接损坏   │
                     └────────────────────────────────────────────────────────┘
 ```
 
-#### ① 纯 CLI 终端开发 ── 🖥️ 【推荐在 WSL / Linux 下运行】
-> 依赖 Linux 原生的文件系统与 Git 仓库，直接在 WSL 终端里调试 CLI，体验最快、无跨系统延迟。
+#### ① 日常调试：
+在 WSL 终端中直接运行：
+```bash
+pnpm dev:desktop
+# 或
+leoms desk dev
+```
+会自动检测开发环境、确认前端与伴生服务端口就绪，并在 Windows 桌面呼出原生窗口。按下 `Ctrl+C` 时，WSL 编排器会通过进程树守护一并优雅释放 Windows 侧的 Rust 进程。
 
-| 脚本命令 | 核心用途 | 详细说明 |
-| :--- | :--- | :--- |
-| `pnpm dev [args...]` | **实时调试 CLI** | 基于 `tsx` 零编译实时执行 TS 源码，支持任意参数（如 `pnpm dev status`、`pnpm dev check -i git`）。 |
-| `pnpm build:cli` | **单编 CLI 引擎** | 仅编译 CLI 与后端托管接口至 `dist/index.js`（耗时数十毫秒）。 |
-| `pnpm start [args...]` | **生产模式模拟** | 以真实生产产物（`node ./bin/leoms.js`）运行 CLI，模拟用户安装后的行为。 |
+#### ② 生产打包：
+在 WSL 终端中直接运行：
+```bash
+pnpm build:desktop
+# 或
+leoms desk build
+```
+自动在 WSL 内打包前端产物，再由 Windows 宿主编译出原生 `.exe` / `.msi` 安装包，最后统一将构建产物、体积与 SHA256 校验码归集至 `dist/desktop/`。
 
-#### ② 纯 Web UI 控制台开发 ── 🌐 【推荐在 WSL 运行，Windows 浏览器预览】
-> 在 WSL 终端启动 Vite，利用 WSL2 自动端口转发，在 Windows 浏览器中享受极速 HMR 热更新。
-
-| 脚本命令 | 核心用途 | 详细说明 |
-| :--- | :--- | :--- |
-| `pnpm dev:ui` | **前端 HMR 开发服务器** | 启动 Vite 开发服务（默认端口 5173），直接在 Windows 浏览器访问 `http://localhost:5173`。 |
-| `pnpm build:ui` | **单编前端静态资源** | 先执行前端专属类型检查，再使用 Vite 将 React 19 SPA 编译打包至 `dist/ui`。 |
-
-#### ③ 桌面端 Studio (Tauri v2) ── 🪟 【建议仅在 Windows 宿主终端运行】
-> **⚠️ 为什么桌面端建议切到 Windows 终端运行？**  
-> 虽然 WSL 也能安装 Linux GUI 依赖，但项目的最终交付形态是 **Windows 桌面原生应用**（类似 Docker Desktop，生成 `.msi` / `.exe`，调用 Windows 原生 Win32 与 WebView2 渲染）。  
-> 从 Windows 终端（PowerShell 或 CMD）通过 `<path-to-workspace>` 打开目录并执行以下命令，能直接调用 Windows 侧的 Rust 编译原生窗口，体验最真实：
-
-| 脚本命令 | 核心用途 | 详细说明 |
-| :--- | :--- | :--- |
-| `pnpm dev:desktop` | **启动 Windows 原生窗口调试** | 自动拉起 Vite 前端并呼出 Windows 原生 GUI 窗口，测试原生窗口拖拽与系统桥接。 |
-| `pnpm build:desktop` | **打包 Windows 生产安装包** | 调用 Windows 侧 Rust 编译器打包生成 `.msi` 或 `.exe` 安装程序。 |
-| `pnpm tauri <args>` | **Tauri 原生工具链调用** | 执行如 `pnpm tauri info` 检查 Windows 侧 Rust/WebView2 环境是否完整。 |
-
-#### ④ 全量质量检查与集成构建 ── 🛡️ 【WSL / Windows 均可，推荐 WSL】
-
-| 脚本命令 | 核心用途 | 详细说明 |
-| :--- | :--- | :--- |
-| `pnpm typecheck` | **双层 TS 类型自检** | 分别校验 CLI（NodeNext）与 UI（DOM），确保代码提交前 0 类型报错。 |
-| `pnpm build` | **CLI + Web UI 联合构建** | 依序执行 `build:cli` 与 `build:ui`，生成可脱机运行的完整 Web/CLI 制品。 |
+#### ③ 环境自检：
+在遇到环境疑问时执行：
+```bash
+pnpm desk:doctor
+# 或
+leoms desk doctor
+```
+一键自检 WSL 与宿主双端工具链。
 
 ---
 

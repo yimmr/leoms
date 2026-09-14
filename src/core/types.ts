@@ -29,6 +29,7 @@ export interface LeomsConfig {
     script?: string;
   };
   categories?: Record<string, string>;
+  desktop?: import("./desktop/types.js").DesktopConfig;
 }
 
 export interface DoctorItem {

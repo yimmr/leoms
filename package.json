@@ -31,10 +31,18 @@
     "start": "node ./bin/leoms.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
     "tauri": "tauri",
-    "dev:desktop": "WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
-    "dev:win": "bash scripts/dev-desktop.sh",
-    "build:desktop": "tauri build",
-    "build:win": "bash scripts/build-desktop.sh"
+    "dev:desktop": "node ./bin/leoms.js desk dev",
+    "build:desktop": "node ./bin/leoms.js desk build",
+    "desk:doctor": "node ./bin/leoms.js desk doctor"
+  },
+  "leoms": {
+    "desktop": {
+      "companion": {
+        "command": "pnpm dev ui -p 3200 --no-open",
+        "port": 3200,
+        "healthCheck": "http://localhost:3200/api/health"
+      }
+    }
   },
   "dependencies": {
     "cli-table3": "^0.6.5",

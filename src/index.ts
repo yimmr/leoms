@@ -15,6 +15,7 @@ import { runRemove, type RemoveCommandOptions } from "./commands/remove.js";
 import { runBuild, type BuildCommandOptions } from "./commands/build.js";
 import { runPlan, type PlanCommandOptions } from "./commands/plan.js";
 import { runUi, type UiCommandOptions } from "./commands/ui.js";
+import { runDesktopDev, runDesktopBuild, runDesktopDoctor } from "./commands/desktop.js";
 import { setLocale, t } from "./core/i18n.js";
 import { loadLeomsConfig } from "./core/config.js";
 
@@ -344,6 +345,55 @@ if (process.argv[2] === "composer" || process.argv[2] === "c") {
         await runUi(options || {}, subcommand);
       } catch (err: any) {
         console.error("UI error:", err);
+        process.exit(1);
+      }
+    });
+
+  const desktopCmd = program
+    .command("desktop")
+    .alias("desk")
+    .description("跨平台桌面端应用开发、调试与多端打包流水线 (支持 WSL2 + Windows 自动化桥接)");
+
+  desktopCmd
+    .command("dev [target]")
+    .description("启动桌面端实时开发与热重载 (自动处理前端 + 宿主桌面窗口 + 进程树安全看护)")
+    .option("-p, --project <name>", "指定目标项目或目录")
+    .option("--port <port>", "指定前端开发端口 (默认自动从 tauri.conf.json 嗅探)")
+    .option("--target-dir <path>", "指定 Windows 侧 Rust 编译缓存目录 (默认 C:/tauri-cache/{name})")
+    .option("--no-companion", "不自动拉起声明的伴生本地服务")
+    .action(async (target?: string, options?: any) => {
+      try {
+        await runDesktopDev(target, options || {});
+      } catch (err: any) {
+        console.error("Desktop dev error:", err);
+        process.exit(1);
+      }
+    });
+
+  desktopCmd
+    .command("build [target]")
+    .description("一键构建与打包桌面端原生安装包 (.exe / .msi / .dmg / .deb) 并自动归集产物")
+    .option("-p, --project <name>", "指定目标项目或目录")
+    .option("-o, --out-dir <path>", "指定安装包归集输出目录 (默认 ./dist/desktop)")
+    .option("--skip-ui", "跳过前端静态资源编译")
+    .action(async (target?: string, options?: any) => {
+      try {
+        await runDesktopBuild(target, options || {});
+      } catch (err: any) {
+        console.error("Desktop build error:", err);
+        process.exit(1);
+      }
+    });
+
+  desktopCmd
+    .command("doctor [target]")
+    .description("跨平台桌面端开发环境与工具链依赖健康度体检")
+    .option("-p, --project <name>", "指定目标项目或目录")
+    .action(async (target?: string, options?: any) => {
+      try {
+        await runDesktopDoctor(target || options?.project);
+      } catch (err: any) {
+        console.error("Desktop doctor error:", err);
         process.exit(1);
       }
     });
