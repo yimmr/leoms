@@ -1,0 +1,3 @@
+[build]
+# WSL / 9P 挂载盘（如 U:\）对文件锁支持有限，关闭增量编译以避免 os error -2147024895 锁冲突
+incremental = false

@@ -1,0 +1,61 @@
+{
+  "name": "leoms",
+  "version": "0.1.0",
+  "description": "Inspector and orchestrator for multi-language, multi-repo workspace",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "monorepo",
+    "multi-repo",
+    "orchestrator",
+    "pnpm",
+    "composer",
+    "typescript",
+    "php",
+    "gatekeeper"
+  ],
+  "bin": {
+    "leoms": "./bin/leoms.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "dev:ui": "vite",
+    "build:cli": "tsup",
+    "build:ui": "tsc -p tsconfig.ui.json --noEmit && vite build",
+    "build": "pnpm build:cli && pnpm build:ui",
+    "start": "node ./bin/leoms.js",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
+    "tauri": "tauri",
+    "dev:desktop": "WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
+    "dev:win": "bash scripts/dev-desktop.sh",
+    "build:desktop": "tauri build",
+    "build:win": "bash scripts/build-desktop.sh"
+  },
+  "dependencies": {
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "lucide-react": "^1.16.0",
+    "picocolors": "^1.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.3.3",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  }
+}

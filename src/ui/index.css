@@ -1,0 +1,626 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  
+  /* Modern Fluid Typographic Hierarchy */
+  --text-2xs: clamp(0.72rem, 0.7rem + 0.08vw, 0.78rem);
+  --text-xs: clamp(0.78rem, 0.76rem + 0.1vw, 0.85rem);
+  --text-sm: clamp(0.875rem, 0.85rem + 0.12vw, 0.95rem);
+  --text-base: clamp(1rem, 0.96rem + 0.15vw, 1.08rem);
+  --text-lg: clamp(1.125rem, 1.08rem + 0.2vw, 1.25rem);
+  --text-xl: clamp(1.3rem, 1.22rem + 0.3vw, 1.5rem);
+  --text-2xl: clamp(1.6rem, 1.5rem + 0.45vw, 1.95rem);
+  --text-3xl: clamp(2rem, 1.85rem + 0.6vw, 2.5rem);
+}
+
+html {
+  /* Fluid root scaling across viewports:
+     - 1024px: ~15.2px
+     - 1440px: ~16.2px
+     - 1920px: ~17.3px
+     - 2560px (32" 2K screen): ~18.8px (~18% scaling boost for all rem units!)
+     - 3440px+ (4K / Ultrawide): capped at 19.5px
+  */
+  font-size: clamp(15px, 12.8px + 0.235vw, 19.5px);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   🦁 leoms Design System: Apple macOS / visionOS Modern Frosted Glass Aesthetic
+   ========================================================================== */
+
+:root {
+  /* Light Theme (Apple Frost & Silk) */
+  --bg-app: #f1f4f9;
+  --bg-surface: rgba(255, 255, 255, 0.82);
+  --bg-surface-hover: rgba(255, 255, 255, 0.94);
+  --bg-surface-active: #ffffff;
+  --bg-floating: rgba(255, 255, 255, 0.92);
+
+  --border-glass: rgba(0, 0, 0, 0.09);
+  --border-glass-subtle: rgba(0, 0, 0, 0.05);
+  --border-glass-active: rgba(56, 189, 248, 0.5);
+  
+  --specular-rim: inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+  --specular-subtle: inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
+  
+  --shadow-ambient: 0 12px 36px -4px rgba(30, 45, 80, 0.08), 0 4px 12px -2px rgba(30, 45, 80, 0.04);
+  --shadow-floating: 0 20px 50px -8px rgba(30, 45, 80, 0.15), 0 8px 20px -4px rgba(30, 45, 80, 0.08);
+  --shadow-glow: 0 0 24px rgba(56, 189, 248, 0.2);
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  --accent-cyan: #0284c7;
+  --accent-indigo: #6366f1;
+  --accent-purple: #8b5cf6;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #ef4444;
+
+  --badge-bg-emerald: rgba(16, 185, 129, 0.12);
+  --badge-text-emerald: #059669;
+  --badge-bg-amber: rgba(245, 158, 11, 0.12);
+  --badge-text-amber: #d97706;
+  --badge-bg-rose: rgba(239, 68, 68, 0.12);
+  --badge-text-rose: #dc2626;
+  --badge-bg-cyan: rgba(2, 132, 199, 0.12);
+  --badge-text-cyan: #0284c7;
+  --badge-bg-purple: rgba(139, 92, 246, 0.12);
+  --badge-text-purple: #7c3aed;
+
+  --mesh-opacity: 0.45;
+  --terminal-bg: rgba(15, 23, 42, 0.94);
+  --terminal-text: #e2e8f0;
+}
+
+html.dark {
+  /* Dark Theme (Apple Obsidian & VisionOS Luminescence) */
+  --bg-app: #08090d;
+  --bg-surface: rgba(18, 22, 34, 0.65);
+  --bg-surface-hover: rgba(28, 34, 52, 0.78);
+  --bg-surface-active: rgba(38, 46, 70, 0.88);
+  --bg-floating: rgba(20, 24, 38, 0.82);
+
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-glass-subtle: rgba(255, 255, 255, 0.06);
+  --border-glass-active: rgba(56, 189, 248, 0.5);
+
+  --specular-rim: inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+  --specular-subtle: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+
+  --shadow-ambient: 0 16px 48px -8px rgba(0, 0, 0, 0.6), 0 4px 16px -2px rgba(0, 0, 0, 0.4);
+  --shadow-floating: 0 24px 64px -12px rgba(0, 0, 0, 0.8), 0 12px 28px -4px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 32px rgba(56, 189, 248, 0.25);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
+
+  --accent-cyan: #38bdf8;
+  --accent-indigo: #818cf8;
+  --accent-purple: #c084fc;
+  --accent-emerald: #34d399;
+  --accent-amber: #fbbf24;
+  --accent-rose: #f87171;
+
+  --badge-bg-emerald: rgba(52, 211, 153, 0.15);
+  --badge-text-emerald: #34d399;
+  --badge-bg-amber: rgba(251, 191, 36, 0.15);
+  --badge-text-amber: #fbbf24;
+  --badge-bg-rose: rgba(248, 113, 113, 0.15);
+  --badge-text-rose: #f87171;
+  --badge-bg-cyan: rgba(56, 189, 248, 0.15);
+  --badge-text-cyan: #38bdf8;
+  --badge-bg-purple: rgba(192, 132, 252, 0.15);
+  --badge-text-purple: #c084fc;
+
+  --mesh-opacity: 0.6;
+  --terminal-bg: rgba(9, 11, 16, 0.95);
+  --terminal-text: #f1f5f9;
+}
+
+/* ================= Base Styles (Layered & Inherited) ================= */
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ================= Apple Ambient Mesh Gradient ================= */
+.ambient-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambient-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: var(--mesh-opacity);
+  transition: all 1s ease;
+  mix-blend-mode: normal;
+}
+
+.blob-1 {
+  top: -10%;
+  left: 15%;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0) 70%);
+}
+
+.blob-2 {
+  top: 25%;
+  right: -5%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0) 70%);
+}
+
+.blob-3 {
+  bottom: -15%;
+  left: 20%;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.18) 0%, rgba(168, 85, 247, 0) 70%);
+}
+
+/* ================= Apple Glassmorphism Primitives ================= */
+.apple-glass {
+  background: var(--bg-surface);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-ambient), var(--specular-rim);
+}
+
+.apple-glass-card {
+  background: var(--bg-surface);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-ambient), var(--specular-rim);
+  border-radius: 20px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.apple-glass-card:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-glass-active);
+  box-shadow: var(--shadow-floating), var(--specular-rim), var(--shadow-glow);
+}
+
+.apple-segmented-control {
+  background: rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  padding: 3px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+html.dark .apple-segmented-control {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.apple-segmented-item {
+  padding: clamp(5px, 0.32rem + 0.1vw, 8px) clamp(12px, 0.68rem + 0.18vw, 16px);
+  border-radius: 9999px;
+  font-size: clamp(0.8125rem, 0.78rem + 0.1vw, 0.875rem);
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(5px, 0.3rem + 0.1vw, 8px);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap !important;
+}
+
+.apple-segmented-item:hover {
+  color: var(--text-primary);
+}
+
+.apple-segmented-item.active {
+  background: var(--bg-surface-active);
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), var(--specular-rim);
+}
+
+html.dark .apple-segmented-item.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* Apple Sleek Action Icon Button */
+.apple-action-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--specular-subtle), 0 1px 3px rgba(0, 0, 0, 0.05);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  flex-shrink: 0;
+  white-space: nowrap !important;
+  position: relative;
+}
+
+.apple-action-icon-btn:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-glass-active);
+  color: var(--text-primary);
+  box-shadow: var(--specular-rim), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.apple-action-icon-btn:active {
+  transform: scale(0.95);
+  background: var(--bg-surface-active);
+}
+
+/* Floating Apple Popover Menu */
+.apple-popover-menu {
+  background: var(--bg-floating);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-floating), var(--specular-rim);
+  border-radius: 14px;
+  padding: 5px;
+  min-width: 170px;
+  z-index: 60;
+}
+
+/* Solid & Fully Scrollable Project Directory Dropdown (100% Opaque & Scrollable) */
+.project-dir-dropdown-menu {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  left: 0 !important;
+  z-index: 9999 !important;
+  width: 100% !important;
+  min-width: 320px !important;
+  max-height: 320px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 16px 38px -4px rgba(0, 0, 0, 0.16), 0 6px 16px -2px rgba(0, 0, 0, 0.08) !important;
+  border-radius: 14px !important;
+  padding: 6px !important;
+  box-sizing: border-box !important;
+}
+
+html.dark .project-dir-dropdown-menu {
+  background-color: #181c26 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 20px 48px -6px rgba(0, 0, 0, 0.8), 0 8px 20px -2px rgba(0, 0, 0, 0.6) !important;
+}
+
+.project-dir-dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+.project-dir-dropdown-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.project-dir-dropdown-menu::-webkit-scrollbar-thumb {
+  background: rgba(140, 150, 170, 0.35);
+  border-radius: 9999px;
+}
+.project-dir-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 150, 170, 0.6);
+}
+
+.apple-popover-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: clamp(0.8125rem, 0.78rem + 0.1vw, 0.875rem);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap !important;
+  transition: all 0.12s ease;
+  user-select: none;
+  text-align: left;
+}
+
+.apple-popover-item:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.apple-glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-ambient), var(--specular-rim);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.apple-table-header {
+  background: rgba(0, 0, 0, 0.035);
+  border-bottom: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+}
+
+html.dark .apple-table-header {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+}
+
+.apple-table-row {
+  border-bottom: 1px solid var(--border-glass-subtle);
+}
+
+.apple-table-row td {
+  padding-top: clamp(0.72rem, 0.65rem + 0.15vw, 0.92rem);
+  padding-bottom: clamp(0.72rem, 0.65rem + 0.15vw, 0.92rem);
+}
+
+.apple-drawer {
+  background: var(--bg-floating);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  border-left: 1px solid var(--border-glass);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.35), var(--specular-rim);
+}
+
+/* ================= Centered Modal Window ================= */
+.apple-modal-backdrop {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: modalBackdropFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-modal-window {
+  background-color: #ffffff;
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  box-shadow: 0 25px 65px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  border-radius: 20px;
+  animation: modalPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.dark .apple-modal-window {
+  background-color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+@keyframes modalBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.975) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.apple-glass-pill {
+  background: var(--bg-surface);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-ambient), var(--specular-rim);
+  border-radius: 9999px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-glass-pill:hover {
+  background: var(--bg-surface-hover);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.apple-glass-button {
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--specular-rim), 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: clamp(0.8125rem, 0.78rem + 0.1vw, 0.875rem);
+  padding: clamp(6px, 0.35rem + 0.12vw, 9px) clamp(13px, 0.7rem + 0.2vw, 18px);
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(5px, 0.3rem + 0.1vw, 8px);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  white-space: nowrap !important;
+}
+
+.apple-glass-button:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-glass-active);
+  box-shadow: var(--specular-rim), 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.apple-glass-button:active {
+  transform: scale(0.97);
+  background: var(--bg-surface-active);
+}
+
+.apple-glass-button.primary {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.85) 0%, rgba(99, 102, 241, 0.85) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.4), 0 4px 16px rgba(56, 189, 248, 0.3);
+}
+
+.apple-glass-button.primary:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.95) 0%, rgba(99, 102, 241, 0.95) 100%);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.5), 0 6px 22px rgba(56, 189, 248, 0.45);
+}
+
+.apple-glass-input {
+  background: rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: clamp(0.8125rem, 0.78rem + 0.1vw, 0.875rem);
+  padding: clamp(6px, 0.35rem + 0.12vw, 9px) clamp(12px, 0.65rem + 0.15vw, 15px);
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .apple-glass-input {
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.apple-glass-input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+/* ================= Badges & Dots ================= */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: clamp(3.5px, 0.2rem + 0.07vw, 5px) clamp(9px, 0.5rem + 0.12vw, 12px);
+  border-radius: 9999px;
+  font-size: clamp(0.75rem, 0.72rem + 0.08vw, 0.8125rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+/* Fluid arbitrary small text overrides - ensures crisp rendering and legibility on large screens */
+.text-\[9px\], .text-\[10px\] {
+  font-size: clamp(0.72rem, 0.7rem + 0.08vw, 0.78rem) !important;
+}
+.text-\[11px\] {
+  font-size: clamp(0.78rem, 0.76rem + 0.1vw, 0.85rem) !important;
+}
+
+.status-pill.emerald {
+  background: var(--badge-bg-emerald);
+  color: var(--badge-text-emerald);
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.status-pill.amber {
+  background: var(--badge-bg-amber);
+  color: var(--badge-text-amber);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.status-pill.rose {
+  background: var(--badge-bg-rose);
+  color: var(--badge-text-rose);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.status-pill.cyan {
+  background: var(--badge-bg-cyan);
+  color: var(--badge-text-cyan);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.status-pill.purple {
+  background: var(--badge-bg-purple);
+  color: var(--badge-text-purple);
+  border-color: rgba(192, 132, 252, 0.25);
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ================= Terminal & Console Box ================= */
+.glass-terminal {
+  background: var(--terminal-bg);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-floating), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  color: var(--terminal-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(0.8125rem, 0.78rem + 0.1vw, 0.875rem);
+  line-height: 1.7;
+  overflow: hidden;
+}
+
+/* ================= Sleek Apple Scrollbar ================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.4);
+}
