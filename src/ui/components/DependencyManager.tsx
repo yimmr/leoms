@@ -257,6 +257,9 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
 
   // Install package from community search (supports specified version if typed in query)
   const handleCommunityInstall = (pkg: RegistrySearchResult, isDev: boolean = false) => {
+    const pkgKey = pkg.name.toLowerCase();
+    if (pendingPkgs[pkgKey]) return;
+
     const parsed = parseSearchQuery(searchQuery);
     let pkgSpec = pkg.name;
     if (parsed.specVersion && pkg.name.toLowerCase() === parsed.queryText.toLowerCase()) {
@@ -268,7 +271,7 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
 
     setPendingPkgs((prev) => ({
       ...prev,
-      [pkg.name.toLowerCase()]: { action: "add", dev: isDev, spec: pkgSpec },
+      [pkgKey]: { action: "add", dev: isDev, spec: pkgSpec },
     }));
 
     onExecuteTask({
@@ -293,11 +296,14 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
   const handleConfirmRemove = () => {
     if (!confirmingRemoveDep) return;
     const dep = confirmingRemoveDep;
+    const depKey = dep.name.toLowerCase();
+    if (pendingPkgs[depKey]) return;
+
     setConfirmingRemoveDep(null);
 
     setPendingPkgs((prev) => ({
       ...prev,
-      [dep.name.toLowerCase()]: { action: "remove" },
+      [depKey]: { action: "remove" },
     }));
 
     onExecuteTask({
@@ -314,12 +320,15 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
 
   // Quick update package handler
   const handleUpdateLatest = (dep: ProjectDependencyEntry) => {
+    const depKey = dep.name.toLowerCase();
+    if (pendingPkgs[depKey]) return;
+
     const isDev = dep.category === "devDependencies" || dep.category === "require-dev";
     const pkgSpec = dep.ecosystem === "composer" ? `${dep.name}:*` : `${dep.name}@latest`;
 
     setPendingPkgs((prev) => ({
       ...prev,
-      [dep.name.toLowerCase()]: { action: "update", dev: isDev },
+      [depKey]: { action: "update", dev: isDev },
     }));
 
     onExecuteTask({

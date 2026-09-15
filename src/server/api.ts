@@ -34,6 +34,22 @@ export class TaskManager extends EventEmitter {
   private tasks = new Map<string, TaskStatus>();
   private taskProcesses = new Map<string, ChildProcess>();
   private maxLogsPerTask = 2000;
+  private activeFingerprints = new Map<string, string>();
+
+  findRunningTaskByFingerprint(fingerprint: string): TaskStatus | undefined {
+    const existingTaskId = this.activeFingerprints.get(fingerprint);
+    if (!existingTaskId) return undefined;
+    const task = this.tasks.get(existingTaskId);
+    if (task && task.status === "running") {
+      return task;
+    }
+    this.activeFingerprints.delete(fingerprint);
+    return undefined;
+  }
+
+  registerFingerprint(fingerprint: string, taskId: string): void {
+    this.activeFingerprints.set(fingerprint, taskId);
+  }
 
   registerProcess(id: string, proc: ChildProcess): void {
     this.taskProcesses.set(id, proc);
@@ -95,6 +111,11 @@ export class TaskManager extends EventEmitter {
 
   finishTask(id: string, exitCode: number): void {
     this.taskProcesses.delete(id);
+    for (const [fp, tid] of this.activeFingerprints.entries()) {
+      if (tid === id) {
+        this.activeFingerprints.delete(fp);
+      }
+    }
     const task = this.tasks.get(id);
     if (!task || task.status !== "running") return;
 
@@ -635,8 +656,6 @@ export function executeTaskAsync(
   optionsOrExtraArgs: Record<string, any> | string[] = {},
   extraArgsList: string[] = []
 ): TaskStatus {
-  const task = taskManager.createTask(action, target);
-
   let options: Record<string, any> = {};
   let extraArgs: string[] = [];
 
@@ -646,6 +665,23 @@ export function executeTaskAsync(
     options = optionsOrExtraArgs || {};
     extraArgs = extraArgsList;
   }
+
+  // Check if an identical task is already running (prevent twin child processes from duplicate dispatch)
+  const sortedOptions = Object.keys(options)
+    .sort()
+    .reduce<Record<string, any>>((acc, k) => {
+      acc[k] = options[k];
+      return acc;
+    }, {});
+  const taskFingerprint = `${action}::${target || ""}::${JSON.stringify(sortedOptions)}::${extraArgs.join(",")}`;
+
+  const runningTask = taskManager.findRunningTaskByFingerprint(taskFingerprint);
+  if (runningTask) {
+    return runningTask;
+  }
+
+  const task = taskManager.createTask(action, target);
+  taskManager.registerFingerprint(taskFingerprint, task.id);
 
   // Determine working directory
   let workingDir = rootDir;

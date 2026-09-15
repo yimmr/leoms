@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parse } from "yaml";
 import type { CheckRule, CheckRuleContext, CheckIssue } from "../types.js";
 import { t } from "../../i18n.js";
 
@@ -91,6 +92,46 @@ export const manifestRule: CheckRule = {
             message: `package.json 解析错误: ${err.message}`,
           });
         }
+      }
+    }
+
+    // 3. Root pnpm-workspace.yaml allowBuilds hygiene check (only run once on first project)
+    if (
+      context.project.name === context.allProjects[0]?.name &&
+      ecosystemFilter !== "composer" &&
+      context.workspace.pnpmWorkspaceFile &&
+      existsSync(context.workspace.pnpmWorkspaceFile)
+    ) {
+      try {
+        const pnpmConfig = parse(readFileSync(context.workspace.pnpmWorkspaceFile, "utf8"));
+        if (pnpmConfig && typeof pnpmConfig.allowBuilds === "object" && pnpmConfig.allowBuilds !== null) {
+          const invalidEntries: string[] = [];
+          for (const [pkgName, val] of Object.entries(pnpmConfig.allowBuilds)) {
+            if (typeof val !== "boolean") {
+              invalidEntries.push(`${pkgName}: "${val}"`);
+            }
+          }
+          if (invalidEntries.length > 0) {
+            issues.push({
+              level: "error",
+              ruleId: "manifest",
+              ruleName: manifestRule.name,
+              project: "(workspace-root)",
+              projectRelativeDir: ".",
+              message: `pnpm-workspace.yaml 中 allowBuilds 存在非法占位符配置: ${invalidEntries.join(", ")}`,
+              remedy: 'pnpm 12 要求 allowBuilds 每一项的值必须严格为 true 或 false。请修改为 boolean 布尔值（例如 sharp: true）。',
+            });
+          }
+        }
+      } catch (err: any) {
+        issues.push({
+          level: "error",
+          ruleId: "manifest",
+          ruleName: manifestRule.name,
+          project: "(workspace-root)",
+          projectRelativeDir: ".",
+          message: `pnpm-workspace.yaml 解析错误: ${err.message}`,
+        });
       }
     }
 

@@ -260,15 +260,29 @@ export const TaskTerminal: React.FC<TaskTerminalProps> = ({
   const closeStreamRef = useRef<(() => void) | null>(null);
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<number>(0);
+  const executedTaskKeyRef = useRef<string | null>(null);
+  const activeRunIdRef = useRef<number>(0);
 
   // Drag resize tracking refs
   const isDraggingRef = useRef<"corner" | "right" | "bottom" | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
 
+  const getTaskKey = (t: TaskTarget): string => {
+    return `${t.action}::${t.target || ""}::${JSON.stringify(t.options || {})}`;
+  };
+
   useEffect(() => {
-    if (task) {
-      startTask(task);
+    if (!task) {
+      executedTaskKeyRef.current = null;
+      return;
     }
+    const currentKey = getTaskKey(task);
+    if (executedTaskKeyRef.current === currentKey) {
+      return;
+    }
+    executedTaskKeyRef.current = currentKey;
+    startTask(task);
+
     return () => {
       if (closeStreamRef.current) {
         closeStreamRef.current();
@@ -276,6 +290,7 @@ export const TaskTerminal: React.FC<TaskTerminalProps> = ({
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, [task]);
@@ -293,6 +308,7 @@ export const TaskTerminal: React.FC<TaskTerminalProps> = ({
   }, [mode, onClose]);
 
   const startTask = async (t: TaskTarget) => {
+    const runId = ++activeRunIdRef.current;
     setIsRunning(true);
     setExitStatus(null);
     setLogs([]);
@@ -314,15 +330,19 @@ export const TaskTerminal: React.FC<TaskTerminalProps> = ({
 
     try {
       const res = await runTask(t.action, t.target, t.options);
+      if (runId !== activeRunIdRef.current) return;
+
       const taskId = res.task.id;
       setCurrentTaskId(taskId);
 
       closeStreamRef.current = streamTaskLogs(
         taskId,
         (log) => {
+          if (runId !== activeRunIdRef.current) return;
           setLogs((prev) => [...prev, log]);
         },
         (result) => {
+          if (runId !== activeRunIdRef.current) return;
           setIsRunning(false);
           setExitStatus(result);
           onStatusChange?.({
@@ -340,8 +360,12 @@ export const TaskTerminal: React.FC<TaskTerminalProps> = ({
         }
       );
     } catch (err: any) {
+      if (runId !== activeRunIdRef.current) return;
       setIsRunning(false);
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       onStatusChange?.({ isRunning: false, exitCode: 1, durationMs: null });
       setLogs((prev) => [
         ...prev,
@@ -583,7 +607,10 @@ export const TaskTerminal: React.FC<TaskTerminalProps> = ({
         {/* Retry button */}
         {!isRunning && (
           <button
-            onClick={() => startTask(task)}
+            onClick={() => {
+              executedTaskKeyRef.current = null;
+              startTask(task);
+            }}
             title="重新执行命令"
             className="px-2.5 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-xs flex items-center gap-1.5 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
           >
