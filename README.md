@@ -23,7 +23,8 @@
   - [3. 依赖包生命周期管理 (Dependencies)](#3-依赖包生命周期管理-dependencies)
   - [4. 构建与可插拔体检门禁 (Build & Gatekeeper)](#4-构建与可插拔体检门禁-build--gatekeeper)
   - [5. 发版与自动化部署 (Release & Deployment)](#5-发版与自动化部署-release--deployment)
-  - [6. 可视化工作台与桌面 Studio (Visual Studio)](#6-可视化工作台与桌面-studio-visual-studio)
+  - [6. 可视化工作台与桌面 Studio (Visual Studio)](#6-可视化工作台与桌面-studio-visual-studio--desktop-hub)
+  - [7. 项目脚手架与模板系统 (Scaffolding & Templates)](#7-项目脚手架与模板系统-scaffolding--templates)
 - [🛡️ 8 大体检门禁规则清单](#️-8-大体检门禁规则清单)
 - [📁 推荐工作区目录架构](#-推荐工作区目录架构)
 - [🌐 多语言支持 (i18n)](#-多语言支持-i18n)
@@ -389,6 +390,143 @@ leoms desk doctor
       }
     }
     ```
+
+---
+
+### 7. 项目脚手架与模板系统 (Scaffolding & Templates)
+
+`leoms` 提供了内建于多仓工作区的一体化脚手架体系，支持**官方内置现代化技术栈模板**与**工作区团队私有自定义模板**。
+
+#### `leoms create [template] [name]`
+通过指定模板快速生成新项目骨架。
+- **纯位置参数设计（无需 `-t` 标志）**：
+  - 第一参数为 `[template]`，第二参数为可选的 `[name]`。
+  - **缺省智能引导**：未提供模板时，自动弹出全工作区与内置可用模板的交互单选列表；未提供项目名时，自动提示输入项目名称。
+- **模板匹配与冒号协议**：
+  - **冒号前缀 `:name`**：严格仅在当前工作区 `.leoms/templates/<name>` 中匹配自定义模板（如 `leoms create :admin-service`）。
+  - **无前缀 `name`**：自动全量查找。若工作区自定义模板与内置模板存在同名，**自动弹出交互单选菜单让用户明确选择**，杜绝被静默覆盖。
+- **选项**：
+  - `-f, --force`：若目标目录已存在且非空，强制执行文件覆盖写入。
+- **官方内置模板 `react-vite`**：
+  - 核心架构：React 19 + TypeScript + Vite 6 + Tailwind CSS v4（通过 `@tailwindcss/vite` 极简零配置接入）。
+  - **UI 库动态 Recipe**：创建时交互提示选择 UI 库：
+    - `shadcn/ui`（推荐）：自动注入 `clsx`、`tailwind-merge`、`lucide-react`、`class-variance-authority` 依赖，生成标准 `components.json` 及通用 `Button` 组件。
+    - `Ant Design`：自动配置 `antd` 与 `@ant-design/icons` 依赖及示例页面。
+    - `None (Pure Tailwind CSS)`：零额外 UI 依赖的纯净现代化骨架。
+- **调用示例**：
+  ```bash
+  # 1. 交互式选择模板并创建项目
+  leoms create
+
+  # 2. 快速使用官方 react-vite 模板创建前端应用
+  leoms create react-vite admin-web
+
+  # 3. 严格使用工作区自定义微服务模板
+  leoms create :user-service apps/user-service
+  ```
+
+---
+
+#### `leoms template <subcommand>` (别名: `tpl`)
+管理当前工作区的自定义模板生命周期。
+
+##### 1. `leoms template list` (别名: `ls`)
+以直观表格形式列出当前可用的所有项目模板（展示所属类型、模板名、快捷调用指令、版本号与简要描述）。
+```bash
+leoms template ls
+```
+
+##### 2. `leoms template create <name>` (别名: `new`, `init`)
+在工作区 `.leoms/templates/<name>` 初始化一个纯净、语言无关的自定义模板骨架。
+```bash
+leoms template create my-custom-tpl
+```
+
+##### 3. `leoms template delete <name>` (别名: `rm`)
+从工作区 `.leoms/templates/<name>` 中安全删除指定的自定义模板（内置确认防误触机制）。
+```bash
+leoms template rm my-custom-tpl
+```
+
+---
+
+#### 💡 自定义模板开发深度指南
+
+工作区模板统一存放在根目录的 `.leoms/templates/<name>/` 下，随 Git 一同提交，团队全员拉取即用。
+
+##### 1. 模板目录组织
+```text
+.leoms/templates/my-template/
+├── template.config.mjs   # 模板配置与自定义脚本（原生 Node ESM）
+├── README.md             # 模板使用说明
+└── template/             # 模板源文件目录（放入任意语言源码）
+```
+- **语言中立**：`template/` 目录下无任何特定语言预设文件。可直接放入 Go（`go.mod`）、Rust（`Cargo.toml`）、Python（`pyproject.toml`）、PHP（`composer.json`）或任意静态文件。
+
+##### 2. 占位符自动替换
+在 `template/` 目录的所有文本文件中：
+- `{{projectName}}` 或 `{{name}}`：自动替换为创建项目时指定的名字。
+- `{{key}}`：若在 `template.config.mjs` 中声明了名为 `key` 的提问项，该占位符会自动替换为用户的交互输入值。
+
+##### 3. `template.config.mjs` 规范与生命周期钩子
+```javascript
+/**
+ * @type {import('leoms').TemplateConfig}
+ */
+export default {
+  name: "my-template",
+  version: "1.0.0",
+  description: "企业级微服务模板",
+
+  // 1. 命令行交互式问询（回答会注入 answers，且自动替换 template/ 中的 {{key}}）
+  prompts: [
+    {
+      name: "enableDocker",
+      message: "是否生成 Docker 编排配置？",
+      type: "confirm", // 'confirm' | 'select' | 'input'
+      default: true,
+    },
+    {
+      name: "dbType",
+      message: "请选择数据库驱动：",
+      type: "select",
+      choices: [
+        { label: "PostgreSQL", value: "pg" },
+        { label: "MySQL", value: "mysql" },
+      ],
+      default: "pg",
+    },
+    {
+      name: "author",
+      message: "作者名称：",
+      type: "input",
+      default: "Developer",
+    },
+  ],
+
+  // 2. 渲染前钩子（在文件被复制前执行）
+  async beforeRender({ projectName, targetDir, answers }) {},
+
+  // 3. 渲染后钩子（在文件复制完成后执行）
+  async afterRender({ projectName, targetDir, answers, utils }) {
+    // utils 提供的实用工具集合：
+    // utils.removeFile(relativePath)                      - 删除目标产物中的指定文件
+    // utils.writeFile(relativePath, content)              - 向目标产物中写入新文件
+    // utils.readFile(relativePath)                       - 读取目标产物中的文件
+    // utils.modifyJson(relativePath, (json) => modified) - 便捷改写目标产物中的 JSON
+
+    if (!answers.enableDocker) {
+      utils.removeFile("Dockerfile");
+      utils.removeFile("compose.yaml");
+    }
+  },
+};
+```
+
+##### 4. 复杂多脚本工程化编排
+由于 `template.config.mjs` 基于原生 Node.js ES Module 运行，对于复杂模板（需上千行编排逻辑、多步骤生成）：
+- **多模块解耦**：可在模板目录下创建 `scripts/` 子目录，拆分如 `database.mjs`、`auth.mjs`，在主配置文件中使用标准 `import` 导入。
+- **全功能 Node 运行时**：可使用 `node:child_process`（执行外部 Shell / CLI 自动化命令，如 `git clone`、`cargo init`、`pnpm install`）、原生 `fetch`（拉取远程私有物料）等。
 
 ---
 

@@ -174,6 +174,20 @@ export const zh: LocaleSchema = {
         noOpen: "启动服务时不自动在浏览器中打开页面",
       },
     },
+    create: {
+      description: "通过模板快速创建新项目（支持 :前缀指定自定义模板）",
+      options: {
+        force: "如果目标目录已存在且非空，强制覆盖",
+      },
+    },
+    template: {
+      description: "管理工作区项目模板（查看、创建或删除）",
+      commands: {
+        list: "列出当前可用的所有项目模板（包括内置与工作区自定义）",
+        create: "在工作区 .leoms/templates 中初始化一个自定义模板骨架",
+        delete: "从工作区 .leoms/templates 中删除指定的自定义模板",
+      },
+    },
   },
   runner: {
     noRoot: "无法定位工作区根目录。",

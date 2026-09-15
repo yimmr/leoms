@@ -19,6 +19,8 @@ import { runBuild, type BuildCommandOptions } from "./commands/build.js";
 import { runPlan, type PlanCommandOptions } from "./commands/plan.js";
 import { runUi, type UiCommandOptions } from "./commands/ui.js";
 import { runDesktopDev, runDesktopBuild, runDesktopDoctor } from "./commands/desktop.js";
+import { runCreate, type CreateCommandOptions } from "./commands/create.js";
+import { runTemplateList, runTemplateCreate, runTemplateDelete } from "./commands/template.js";
 import { setLocale, t } from "./core/i18n.js";
 import { loadLeomsConfig } from "./core/config.js";
 
@@ -105,6 +107,64 @@ if (process.argv[2] === "composer" || process.argv[2] === "c") {
         await runInit(directory || ".", options || {});
       } catch (err: any) {
         console.error("Init error:", err);
+        process.exit(1);
+      }
+    });
+
+  program
+    .command("create [template] [name]")
+    .description(t("commands.create.description"))
+    .option("-f, --force", t("commands.create.options.force"))
+    .action(async (template?: string, name?: string, options?: CreateCommandOptions) => {
+      try {
+        await runCreate(template, name, options || {});
+      } catch (err: any) {
+        console.error("Create error:", err);
+        process.exit(1);
+      }
+    });
+
+  const templateCmd = program
+    .command("template")
+    .alias("tpl")
+    .description(t("commands.template.description"));
+
+  templateCmd
+    .command("list")
+    .alias("ls")
+    .description(t("commands.template.commands.list"))
+    .action(async () => {
+      try {
+        await runTemplateList();
+      } catch (err: any) {
+        console.error("Template list error:", err);
+        process.exit(1);
+      }
+    });
+
+  templateCmd
+    .command("create <name>")
+    .alias("new")
+    .alias("init")
+    .description(t("commands.template.commands.create"))
+    .action(async (name: string) => {
+      try {
+        await runTemplateCreate(name);
+      } catch (err: any) {
+        console.error("Template create error:", err);
+        process.exit(1);
+      }
+    });
+
+  templateCmd
+    .command("delete <name>")
+    .alias("rm")
+    .description(t("commands.template.commands.delete"))
+    .action(async (name: string) => {
+      try {
+        await runTemplateDelete(name);
+      } catch (err: any) {
+        console.error("Template delete error:", err);
         process.exit(1);
       }
     });

@@ -174,6 +174,20 @@ export const en: LocaleSchema = {
         noOpen: "Do not automatically open the browser on start",
       },
     },
+    create: {
+      description: "Scaffold a new project from a template (supports :prefix for custom templates)",
+      options: {
+        force: "Force overwrite if target directory exists and is not empty",
+      },
+    },
+    template: {
+      description: "Manage project templates in workspace (list, create, delete)",
+      commands: {
+        list: "List all available project templates (builtin and workspace custom)",
+        create: "Scaffold a custom template skeleton in .leoms/templates/",
+        delete: "Remove a custom template from .leoms/templates/",
+      },
+    },
   },
   runner: {
     noRoot: "Cannot locate workspace root.",

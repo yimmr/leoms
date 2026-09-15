@@ -172,6 +172,20 @@ export interface LocaleSchema {
         noOpen: string;
       };
     };
+    create: {
+      description: string;
+      options: {
+        force: string;
+      };
+    };
+    template: {
+      description: string;
+      commands: {
+        list: string;
+        create: string;
+        delete: string;
+      };
+    };
   };
   runner: {
     noRoot: string;

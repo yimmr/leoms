@@ -275,3 +275,44 @@ export async function promptConfirm(message: string, defaultYes = true): Promise
     },
   ]);
 }
+
+/**
+ * Interactive text input prompt
+ */
+export async function promptInput(
+  message: string,
+  defaultValue?: string,
+  validator?: (val: string) => string | boolean
+): Promise<string> {
+  if (!process.stdin.isTTY) {
+    return defaultValue || "";
+  }
+
+  const suffix = defaultValue ? ` ${pc.dim(`(${defaultValue})`)}` : "";
+  const promptText = `${pc.cyan("?")} ${pc.bold(message)}${suffix}: `;
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    function ask() {
+      rl.question(promptText, (answer) => {
+        const val = answer.trim() || defaultValue || "";
+        if (validator) {
+          const res = validator(val);
+          if (res !== true && typeof res === "string") {
+            console.log(pc.red(`✖ ${res}`));
+            ask();
+            return;
+          }
+        }
+        rl.close();
+        console.log(`${pc.green("✔")} ${pc.bold(message)} ${pc.cyan(val)}`);
+        resolve(val);
+      });
+    }
+    ask();
+  });
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, statSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
 
@@ -30,5 +30,5 @@ if (shouldUseTsx) {
     process.exit(code ?? 0);
   });
 } else {
-  await import(distPath);
+  await import(pathToFileURL(distPath).href);
 }

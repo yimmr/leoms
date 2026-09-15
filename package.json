@@ -1,12 +1,13 @@
 {
   "name": "leoms",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Inspector and orchestrator for multi-language, multi-repo workspace",
   "license": "MIT",
   "type": "module",
   "files": [
     "bin",
     "dist",
+    "templates",
     "README.md"
   ],
   "keywords": [
