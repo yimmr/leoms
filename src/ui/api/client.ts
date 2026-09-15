@@ -420,6 +420,21 @@ export async function modifyProjectDependency(payload: {
   return res.json();
 }
 
+export async function fetchProjectOutdated(
+  projectName: string
+): Promise<Record<string, { current: string; latest: string; wanted?: string }>> {
+  try {
+    const res = await fetch(`${API_BASE}/projects/outdated?project=${encodeURIComponent(projectName)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.outdated || {};
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
 export async function searchCommunityRegistry(
   query: string,
   ecosystem: "npm" | "composer" = "npm"

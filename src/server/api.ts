@@ -1032,3 +1032,89 @@ export async function initWorkspace(
     return { success: false, message: err.message || "初始化工作区失败" };
   }
 }
+
+/**
+ * Check for outdated dependencies in a project via pnpm or composer
+ */
+export async function getProjectOutdated(
+  rootDir: string,
+  projectName: string
+): Promise<Record<string, { current: string; latest: string; wanted?: string }>> {
+  const ctx = getWorkspaceContext(rootDir);
+  const projects = await scanWorkspaceProjects(ctx);
+  const { targets } = resolveTargetProjects(projects, rootDir, projectName);
+  const proj = targets[0] || projects.find((p) => p.name === projectName || p.id === projectName);
+  if (!proj) return {};
+
+  const outdatedMap: Record<string, { current: string; latest: string; wanted?: string }> = {};
+
+  if (proj.packageManager === "npm" || proj.packageManager === "hybrid") {
+    try {
+      const stdout = await new Promise<string>((resolve) => {
+        const proc = spawn("pnpm", ["--filter", proj.name, "outdated", "--format", "json"], {
+          cwd: rootDir,
+          env: { ...process.env, LANG: "C.UTF-8" },
+        });
+        let output = "";
+        proc.stdout.on("data", (d) => (output += d.toString("utf8")));
+        proc.on("close", () => resolve(output.trim()));
+        proc.on("error", () => resolve(""));
+      });
+
+      if (stdout) {
+        const jsonStart = stdout.indexOf("{");
+        const jsonEnd = stdout.lastIndexOf("}");
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          const parsed = JSON.parse(stdout.slice(jsonStart, jsonEnd + 1));
+          for (const [name, info] of Object.entries<any>(parsed)) {
+            if (info && info.latest) {
+              outdatedMap[name.toLowerCase()] = {
+                current: info.current || "",
+                latest: info.latest,
+                wanted: info.wanted,
+              };
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (proj.packageManager === "composer" || proj.packageManager === "hybrid") {
+    try {
+      const stdout = await new Promise<string>((resolve) => {
+        const proc = spawn("composer", ["outdated", "-D", "--format=json"], {
+          cwd: proj.path,
+          env: { ...process.env, LANG: "C.UTF-8" },
+        });
+        let output = "";
+        proc.stdout.on("data", (d) => (output += d.toString("utf8")));
+        proc.on("close", () => resolve(output.trim()));
+        proc.on("error", () => resolve(""));
+      });
+
+      if (stdout) {
+        const jsonStart = stdout.indexOf("{");
+        const jsonEnd = stdout.lastIndexOf("}");
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          const parsed = JSON.parse(stdout.slice(jsonStart, jsonEnd + 1));
+          const list = parsed.installed || [];
+          for (const item of list) {
+            if (item && item.name && item.latest) {
+              outdatedMap[item.name.toLowerCase()] = {
+                current: item.version || "",
+                latest: item.latest,
+              };
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return outdatedMap;
+}

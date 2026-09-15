@@ -11,6 +11,7 @@ import {
   getComposerIsolation,
   executeTaskAsync,
   getProjectDependencies,
+  getProjectOutdated,
   modifyProjectDependency,
   searchRegistry,
   getPublishPlan,
@@ -226,6 +227,22 @@ export async function startServer(options: ServerOptions): Promise<ServerInstanc
             }
             return;
           }
+        }
+
+        // Project outdated dependencies inspection
+        if (pathname === "/api/projects/outdated" && req.method === "GET") {
+          const project = parsed.searchParams.get("project");
+          if (!project) {
+            sendError(res, "Missing project query parameter", 400);
+            return;
+          }
+          try {
+            const data = await getProjectOutdated(rootDir, project);
+            sendJson(res, { outdated: data });
+          } catch (err: any) {
+            sendError(res, err.message || "Failed to get project outdated dependencies", 500);
+          }
+          return;
         }
 
         // Community package registry search

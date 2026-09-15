@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   fetchProjectDependencies,
+  fetchProjectOutdated,
   modifyProjectDependency,
   searchCommunityRegistry,
   type ProjectModel,
@@ -30,6 +31,42 @@ import {
 import type { TaskTarget } from "./TaskTerminal.js";
 import { ConfirmDialog } from "./ConfirmDialog.js";
 
+export function isAlreadyLatest(installedVersion: string, latestVersion?: string): boolean {
+  if (!installedVersion) return false;
+  const cleanInst = installedVersion.trim().toLowerCase();
+
+  if (cleanInst === "latest" || cleanInst === "*" || cleanInst === "@workspace:*" || cleanInst === "@workspace:^") {
+    return true;
+  }
+
+  if (!latestVersion) return false;
+  const cleanLat = latestVersion.trim().toLowerCase();
+
+  // Strip leading constraint symbols (^, ~, v, =, >=, >, <=)
+  const normInst = cleanInst.replace(/^[~^v>=< ]+/, "").split(/[-+]/)[0].trim();
+  const normLat = cleanLat.replace(/^[~^v>=< ]+/, "").split(/[-+]/)[0].trim();
+
+  if (normInst === normLat) {
+    return true;
+  }
+
+  // SemVer comparison if both are valid numbers
+  const instParts = normInst.split(".").map((n) => parseInt(n, 10));
+  const latParts = normLat.split(".").map((n) => parseInt(n, 10));
+
+  if (instParts.length >= 1 && latParts.length >= 1 && !instParts.some(isNaN) && !latParts.some(isNaN)) {
+    for (let i = 0; i < Math.max(instParts.length, latParts.length); i++) {
+      const a = instParts[i] ?? 0;
+      const b = latParts[i] ?? 0;
+      if (a > b) return true;
+      if (a < b) return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 interface DependencyManagerProps {
   project: ProjectModel;
   onExecuteTask: (task: TaskTarget) => void;
@@ -37,6 +74,7 @@ interface DependencyManagerProps {
   onTabChange?: (tab: "installed" | "search") => void;
   hideTabSwitcher?: boolean;
   refreshTrigger?: number;
+  isTerminalRunning?: boolean;
 }
 
 type CategoryTab = "all" | "dependencies" | "devDependencies" | "require" | "require-dev" | "peerDependencies" | "workspace";
@@ -48,6 +86,7 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
   onTabChange,
   hideTabSwitcher = false,
   refreshTrigger = 0,
+  isTerminalRunning,
 }) => {
   const [data, setData] = useState<ProjectDependenciesResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -91,6 +130,9 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
     Record<string, { action: "add" | "remove" | "update"; dev?: boolean; spec?: string }>
   >({});
 
+  // Real-time project outdated dependencies map: { [pkgName.toLowerCase()]: { current, latest } }
+  const [outdatedMap, setOutdatedMap] = useState<Record<string, { current: string; latest: string; wanted?: string }> | null>(null);
+
   // Modern confirmation dialog state for removing dependencies
   const [confirmingRemoveDep, setConfirmingRemoveDep] = useState<ProjectDependencyEntry | null>(null);
 
@@ -98,7 +140,7 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
     loadDependencies();
   }, [project.name]);
 
-  // Synchronize dependencies when refreshTrigger changes
+  // Synchronize dependencies when refreshTrigger changes (e.g. task completed or failed)
   useEffect(() => {
     if (refreshTrigger > 0) {
       loadDependencies().then(() => {
@@ -106,6 +148,22 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
       });
     }
   }, [refreshTrigger]);
+
+  // When terminal task finishes or is closed, immediately release any spinning pending buttons
+  useEffect(() => {
+    if (isTerminalRunning === false) {
+      setPendingPkgs({});
+    }
+  }, [isTerminalRunning]);
+
+  const loadOutdated = async () => {
+    try {
+      const res = await fetchProjectOutdated(project.name);
+      setOutdatedMap(res || {});
+    } catch {
+      setOutdatedMap({});
+    }
+  };
 
   const loadDependencies = async () => {
     setLoading(true);
@@ -118,7 +176,11 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
       setError(err.message || "无法获取项目依赖清单");
     } finally {
       setLoading(false);
+      setPendingPkgs({});
     }
+
+    // Check for outdated dependencies in the background
+    loadOutdated();
   };
 
   const showToast = (type: "success" | "error", text: string) => {
@@ -700,6 +762,11 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
               {filteredDeps.map((dep) => {
                 const isEditing = editingPkg === dep.name;
                 const depPending = pendingPkgs[dep.name.toLowerCase()];
+                const depOutdated = outdatedMap ? outdatedMap[dep.name.toLowerCase()] : undefined;
+                const isUpToDate =
+                  dep.isWorkspace ||
+                  isAlreadyLatest(dep.version, depOutdated?.latest) ||
+                  (outdatedMap !== null && !depOutdated);
 
                 return (
                   <div
@@ -782,9 +849,30 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
                         </div>
                       ) : (
                         <>
-                          <span className="text-xs font-mono px-2.5 py-1 rounded-lg bg-black/5 dark:bg-white/5 border border-[var(--border-glass-subtle)] text-[var(--text-primary)]">
-                            {dep.version}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-mono px-2.5 py-1 rounded-lg bg-black/5 dark:bg-white/5 border border-[var(--border-glass-subtle)] text-[var(--text-primary)]">
+                              {dep.version}
+                            </span>
+                            {/* If outdated, show upgrade hint */}
+                            {depOutdated?.latest && (
+                              <span
+                                title={`最新版本: v${depOutdated.latest}`}
+                                className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium"
+                              >
+                                ➔ v{depOutdated.latest}
+                              </span>
+                            )}
+                            {/* If already up-to-date */}
+                            {isUpToDate && !dep.isWorkspace && (
+                              <span
+                                title="当前已是最新版本"
+                                className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold select-none flex items-center gap-1"
+                              >
+                                <Check size={10} className="text-emerald-500" />
+                                <span>最新</span>
+                              </span>
+                            )}
+                          </div>
 
                           {/* Edit version button */}
                           <button
@@ -793,25 +881,27 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
                               setEditVersionInput(dep.version);
                             }}
                             title="修改版本规则"
-                            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-sky-500 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-sky-500 transition-colors cursor-pointer"
                           >
                             <Edit3 size={14} />
                           </button>
 
-                          {/* Quick Update Button */}
-                          <button
-                            onClick={() => handleUpdateLatest(dep)}
-                            title="更新至最新版本"
-                            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-sky-500 transition-colors"
-                          >
-                            <RefreshCw size={14} />
-                          </button>
+                          {/* Quick Update Button - ONLY shown when dependency is NOT already at latest version */}
+                          {!isUpToDate && (
+                            <button
+                              onClick={() => handleUpdateLatest(dep)}
+                              title={depOutdated?.latest ? `更新至最新版本 (v${depOutdated.latest})` : "更新至最新版本"}
+                              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-[var(--text-muted)] hover:text-sky-500 transition-colors cursor-pointer"
+                            >
+                              <RefreshCw size={14} />
+                            </button>
+                          )}
 
                           {/* Remove Button */}
                           <button
                             onClick={() => handleRemove(dep)}
                             title="从清单中移除"
-                            className="p-1.5 rounded-lg hover:bg-rose-500/10 text-[var(--text-muted)] hover:text-rose-500 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-rose-500/10 text-[var(--text-muted)] hover:text-rose-500 transition-colors cursor-pointer"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -999,6 +1089,7 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
                   const parsed = parseSearchQuery(searchQuery);
                   const hasSpecifiedVersion =
                     parsed.specVersion && pkg.name.toLowerCase() === parsed.queryText.toLowerCase();
+                  const isLatest = installed ? isAlreadyLatest(installed.version, pkg.version) : false;
 
                   return (
                     <div
@@ -1027,19 +1118,24 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
                             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1.5 shadow-2xs">
                               <Check size={12} className="text-emerald-500" />
                               <span>已安装 · v{installed.version}</span>
+                              {isLatest && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold font-mono">
+                                  已是最新
+                                </span>
+                              )}
                               <span className="text-[10px] opacity-75 font-mono">
                                 ({installed.category === "devDependencies" || installed.category === "require-dev" ? "开发依赖" : "生产依赖"})
                               </span>
                             </span>
                           ) : (
-                            <span className="text-xs px-2 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-700/60 text-[var(--text-muted)] font-medium">
+                            <span className="text-xs px-2.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-700/60 text-[var(--text-muted)] font-medium">
                               未安装
                             </span>
                           )}
 
                           {/* Specified Version Tag if matched */}
                           {hasSpecifiedVersion && (
-                            <span className="text-xs px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 font-mono font-medium">
+                            <span className="text-xs px-2.5 py-0.5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 font-mono font-medium">
                               指定版本: {parsed.specVersion}
                             </span>
                           )}
@@ -1074,15 +1170,17 @@ export const DependencyManager: React.FC<DependencyManagerProps> = ({
                           if (installed) {
                             return (
                               <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateLatest(installed)}
-                                  className="apple-glass-button text-xs py-1.5 px-3 text-sky-600 dark:text-sky-400 hover:text-sky-500 shadow-sm cursor-pointer"
-                                  title="更新至最新版本"
-                                >
-                                  <RefreshCw size={12} />
-                                  <span>更新</span>
-                                </button>
+                                {!isLatest && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateLatest(installed)}
+                                    className="apple-glass-button text-xs py-1.5 px-3 text-sky-600 dark:text-sky-400 hover:text-sky-500 shadow-sm cursor-pointer"
+                                    title={`更新至最新版本 (v${pkg.version})`}
+                                  >
+                                    <RefreshCw size={12} />
+                                    <span>更新</span>
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => handleRemove(installed)}

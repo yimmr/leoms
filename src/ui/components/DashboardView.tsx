@@ -1376,6 +1376,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onTabChange={(t) => setModalTab(t)}
                     hideTabSwitcher={true}
                     refreshTrigger={dependencyRefreshKey}
+                    isTerminalRunning={terminalRunning}
                   />
                 )}
               </div>
@@ -1395,6 +1396,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onClose={() => {
                       if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
                       setIsTerminalExpanded(false);
+                      setDependencyRefreshKey((k) => k + 1);
                     }}
                     onSuccess={() => {
                       onRetry?.();
@@ -1403,12 +1405,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onStatusChange={(s) => {
                       setTerminalRunning(s.isRunning);
                       setTerminalExitCode(s.exitCode);
-                      if (!s.isRunning && s.exitCode === 0) {
-                        // Succeeded: wait 2.5s and then automatically collapse
-                        if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
-                        autoCollapseTimerRef.current = setTimeout(() => {
-                          setIsTerminalExpanded(false);
-                        }, 2500);
+                      if (!s.isRunning) {
+                        if (s.exitCode === 0) {
+                          // Succeeded: wait 2.5s and then automatically collapse
+                          if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
+                          autoCollapseTimerRef.current = setTimeout(() => {
+                            setIsTerminalExpanded(false);
+                          }, 2500);
+                        } else {
+                          // Failed: reset pending status in DependencyManager immediately
+                          setDependencyRefreshKey((k) => k + 1);
+                        }
                       }
                     }}
                   />

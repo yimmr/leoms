@@ -400,3 +400,6 @@ if (process.argv[2] === "composer" || process.argv[2] === "c") {
 
   program.parse(process.argv);
 }
+
+export { getProjectOutdated, getProjectDependencies, executeTaskAsync } from "./server/api.js";
+export { startServer } from "./server/index.js";

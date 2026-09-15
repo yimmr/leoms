@@ -12,6 +12,7 @@ logs/
 # Rust / Tauri build artifacts
 src-tauri/target/
 src-tauri/gen/schemas/
+src-tauri/.tauri.dev.override.json
 
 # Environment & local settings
 .env
