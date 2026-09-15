@@ -178,6 +178,20 @@ export async function runRelease(
         process.exit(1);
       }
     }
+
+    // Update tauri.conf.json (if Tauri project)
+    const tauriJsonPath = join(targetProj.path, "src-tauri", "tauri.conf.json");
+    if (existsSync(tauriJsonPath)) {
+      try {
+        const raw = JSON.parse(readFileSync(tauriJsonPath, "utf8"));
+        raw.version = newVer;
+        writeFileSync(tauriJsonPath, JSON.stringify(raw, null, 2) + "\n", "utf8");
+        updatedFiles.push(join(targetProj.relativeDir, "src-tauri", "tauri.conf.json"));
+      } catch (err: any) {
+        console.error(pc.red(`✖ Failed to update tauri.conf.json: ${err.message}`));
+        process.exit(1);
+      }
+    }
   } else {
     updatedFiles.push(`${targetProj.relativeDir}/manifests (simulated)`);
   }

@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { runDoctor } from "./commands/doctor.js";
 import { runList, type ListCommandOptions } from "./commands/list.js";
@@ -18,6 +21,17 @@ import { runUi, type UiCommandOptions } from "./commands/ui.js";
 import { runDesktopDev, runDesktopBuild, runDesktopDoctor } from "./commands/desktop.js";
 import { setLocale, t } from "./core/i18n.js";
 import { loadLeomsConfig } from "./core/config.js";
+
+function getCliVersion(): string {
+  try {
+    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      return pkg.version || "0.1.0-beta.1";
+    }
+  } catch {}
+  return "0.1.0-beta.1";
+}
 
 // 1. Initialize locale from config (leoms.yml) if available
 loadLeomsConfig(process.cwd());
@@ -71,7 +85,7 @@ if (process.argv[2] === "composer" || process.argv[2] === "c") {
   program
     .name(t("cli.name"))
     .description(t("cli.description"))
-    .version("0.1.0", "-v, --version", t("cli.version"))
+    .version(getCliVersion(), "-v, --version", t("cli.version"))
     .configureHelp(helpConfig)
     .helpOption("-h, --help", t("cli.help"))
     .helpCommand("help [command]", t("cli.helpCommand"))
