@@ -78,7 +78,22 @@ jobs:
         with:
           tagName: ${{ github.ref_name || inputs.release_tag }}
           releaseName: 'leoms Studio ${{ github.ref_name || inputs.release_tag }}'
-          releaseBody: 'See the release assets below for Windows (.msi / .exe), macOS (.dmg), and Linux (.deb / .AppImage).'
+          releaseBody: 'See the release assets below for Windows (.exe), macOS (.dmg), and Linux (.deb / .AppImage).'
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  publish-release:
+    name: Publish Release
+    needs: [build-and-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish Draft Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name || inputs.release_tag }}
+        run: |
+          gh release edit "$TAG" --repo "${{ github.repository }}" --draft=false
+
