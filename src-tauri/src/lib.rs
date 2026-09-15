@@ -95,10 +95,17 @@ pub fn launch_backend_daemon(workspace_dir: Option<&str>) -> Result<(), String> 
     #[cfg(target_os = "windows")]
     {
         let mut cmd = Command::new("wsl.exe");
-        if let Some(dir) = workspace_dir {
-            cmd.args(["--cd", dir]);
-        }
-        cmd.args(["-e", "leoms", "ui", "--daemon"]);
+        let dir_cd = if let Some(dir) = workspace_dir {
+            format!("cd \"{}\" && ", dir)
+        } else {
+            "".to_string()
+        };
+        let shell_cmd = format!(
+            r#"if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi; {}if [ -z "{}" ] && [ -f "$HOME/.config/leoms/desktop.json" ]; then WS=$(grep -o '"workspace_path": *"[^"]*"' "$HOME/.config/leoms/desktop.json" | cut -d'"' -f4); if [ -n "$WS" ] && [ -d "$WS" ]; then cd "$WS"; fi; fi; if command -v leoms >/dev/null 2>&1; then leoms ui --daemon; elif [ -f "./apps/leoms/bin/leoms.js" ]; then node ./apps/leoms/bin/leoms.js ui --daemon; elif command -v pnpm >/dev/null 2>&1; then pnpm --filter leoms dev ui --daemon 2>/dev/null || pnpm run ui --daemon 2>/dev/null; else leoms ui --daemon; fi"#,
+            dir_cd,
+            workspace_dir.unwrap_or("")
+        );
+        cmd.args(["-e", "bash", "-lic", &shell_cmd]);
         cmd.creation_flags(CREATE_NO_WINDOW);
         match cmd.spawn() {
             Ok(_) => Ok(()),
@@ -135,7 +142,8 @@ pub fn kill_backend_daemon() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         let mut cmd = Command::new("wsl.exe");
-        cmd.args(["-e", "leoms", "ui", "stop"]);
+        let shell_cmd = r#"if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi; if [ -f "$HOME/.config/leoms/desktop.json" ]; then WS=$(grep -o '"workspace_path": *"[^"]*"' "$HOME/.config/leoms/desktop.json" | cut -d'"' -f4); if [ -n "$WS" ] && [ -d "$WS" ]; then cd "$WS"; fi; fi; leoms ui stop"#;
+        cmd.args(["-e", "bash", "-lic", shell_cmd]);
         cmd.creation_flags(CREATE_NO_WINDOW);
         match cmd.status() {
             Ok(_) => Ok(()),

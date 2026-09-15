@@ -145,22 +145,43 @@ export interface ComposerIsolationInfo {
   }>;
 }
 
-function getApiBase(): string {
+export function isTauri(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    typeof (window as any).__TAURI_INTERNALS__ !== "undefined" ||
+    typeof (window as any).__TAURI__ !== "undefined" ||
+    window.location.protocol === "tauri:" ||
+    window.location.hostname === "tauri.localhost" ||
+    (window.location.hostname.endsWith(".localhost") && window.location.hostname !== "localhost")
+  );
+}
+
+export function getApiBase(): string {
   if (typeof window !== "undefined") {
-    // 1. 如果是在纯 Web 模式下直接通过 leoms 服务访问（非 Vite 5173 端口且非本地文件），优先使用同源相对路径
-    if (window.location.port !== "5173" && window.location.protocol.startsWith("http")) {
+    // 1. 如果在 Tauri 桌面端运行（无论是 dev 预览还是安装包产物），直连本地后端
+    if (isTauri()) {
+      const storedPort = window.localStorage?.getItem("leoms_api_port");
+      const port = storedPort ? parseInt(storedPort, 10) : 3200;
+      return `http://127.0.0.1:${port}/api`;
+    }
+
+    // 2. 如果在前端独立开发环境（如 Vite 5173 端口）
+    if (window.location.port === "5173") {
+      const storedPort = window.localStorage?.getItem("leoms_api_port");
+      const port = storedPort ? parseInt(storedPort, 10) : 3200;
+      const host = window.location.hostname === "localhost" ? "127.0.0.1" : (window.location.hostname || "127.0.0.1");
+      return `http://${host}:${port}/api`;
+    }
+
+    // 3. 如果是在纯 Web 模式下通过浏览器直接访问（如 http://localhost:3200 或局域网 IP）
+    if (window.location.protocol.startsWith("http") && window.location.hostname !== "tauri.localhost") {
       return `${window.location.origin}/api`;
     }
-    // 2. 在开发环境 (Vite 5173) 或 Tauri 桌面端直连本地后端
-    const storedPort = window.localStorage?.getItem("leoms_api_port");
-    const port = storedPort ? parseInt(storedPort, 10) : 3200;
-    const host = window.location.hostname || "127.0.0.1";
-    return `http://${host}:${port}/api`;
   }
   return "http://127.0.0.1:3200/api";
 }
 
-const API_BASE = getApiBase();
+export const API_BASE = getApiBase();
 
 export interface WorkspaceMetaResponse {
   rootDir: string;

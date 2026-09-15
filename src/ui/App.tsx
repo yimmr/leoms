@@ -25,6 +25,8 @@ export const App: React.FC = () => {
   const [activeStatusFilter, setActiveStatusFilter] = useState<string>("all");
   const [activeStandaloneFilter, setActiveStandaloneFilter] = useState<string>("all");
 
+  const [loadingMessage, setLoadingMessage] = useState<string>("正在连接 leoms 核心服务...");
+
   useEffect(() => {
     loadWorkspaceStatus();
   }, []);
@@ -32,15 +34,34 @@ export const App: React.FC = () => {
   const loadWorkspaceStatus = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetchStatus();
-      setStatus(res);
-    } catch (err: any) {
-      console.error("Failed to load workspace status:", err);
-      setError(err.message || "无法连接到后端服务");
-    } finally {
-      setLoading(false);
+    setLoadingMessage("正在连接 leoms 核心服务...");
+
+    // 自动重试与平滑等待机制：最多持续 10 次，每次间隔 800ms（总计约 8 秒）
+    // 桌面端在唤醒 WSL 后台守护进程期间将优雅轮询，避免秒崩报错
+    const maxAttempts = 10;
+    let lastError = "";
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (attempt > 2) {
+          setLoadingMessage(`正在自动唤醒后台核心服务，请稍候 (${attempt}/${maxAttempts})...`);
+        }
+        const res = await fetchStatus();
+        setStatus(res);
+        setError(null);
+        setLoading(false);
+        return;
+      } catch (err: any) {
+        lastError = err.message || "无法连接到后台服务";
+        if (attempt === maxAttempts) break;
+        await new Promise((r) => setTimeout(r, 800));
+      }
     }
+
+    // 只有在全部轮询耗尽后，才认定为真正的边界异常并展示错误卡片
+    console.error("Failed to connect after retries:", lastError);
+    setError(lastError);
+    setLoading(false);
   };
 
   const handleSelectProjectForTopology = (projectName: string) => {
@@ -114,6 +135,7 @@ export const App: React.FC = () => {
                   status={status}
                   error={error}
                   loading={loading}
+                  loadingMessage={loadingMessage}
                   onRetry={loadWorkspaceStatus}
                   onSelectProjectForTopology={handleSelectProjectForTopology}
                   onRunProjectTask={handleRunProjectTask}

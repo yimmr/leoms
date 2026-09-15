@@ -28,7 +28,7 @@ import {
   Terminal,
   PackagePlus,
 } from "lucide-react";
-import type { WorkspaceStatusResponse, ProjectModel } from "../api/client.js";
+import { getApiBase, type WorkspaceStatusResponse, type ProjectModel } from "../api/client.js";
 import { DependencyManager } from "./DependencyManager.js";
 import { TaskTerminal, type TaskTarget } from "./TaskTerminal.js";
 import { ActionWorkflowModal } from "./ActionWorkflowModal.js";
@@ -37,6 +37,7 @@ interface DashboardViewProps {
   status: WorkspaceStatusResponse | null;
   error?: string | null;
   loading?: boolean;
+  loadingMessage?: string;
   onRetry?: () => void;
   onSelectProjectForTopology?: (projectName: string) => void;
   onRunProjectTask?: (action: string, projectName: string) => void;
@@ -51,6 +52,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   status,
   error,
   loading,
+  loadingMessage,
   onRetry,
   onSelectProjectForTopology,
   onRunProjectTask,
@@ -313,7 +315,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               未能连接到 leoms 核心服务
             </h3>
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              当前页面未能连接到后台 API（<code className="text-sky-400 font-mono">http://localhost:3200</code>）。
+              当前页面未能连接到后台 API（<code className="text-sky-400 font-mono">{getApiBase()}</code>）。
             </p>
             <div className="p-3 rounded-xl bg-black/25 text-left text-xs font-mono text-[var(--text-muted)] space-y-1">
               <div className="text-slate-300 font-bold">请在终端启动一体化工作台：</div>
@@ -337,7 +339,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-400 mb-3 animate-spin">
           <Layers size={20} />
         </div>
-        <p className="text-xs text-[var(--text-secondary)] font-medium">正在扫描工作区资产...</p>
+        <p className="text-xs text-[var(--text-secondary)] font-medium">
+          {loadingMessage || "正在扫描工作区资产..."}
+        </p>
       </div>
     );
   }

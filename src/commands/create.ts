@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join, resolve, relative } from "node:path";
+import { join, resolve, relative, basename, isAbsolute } from "node:path";
 import pc from "picocolors";
 import { findWorkspaceRoot } from "../core/workspace.js";
 import {
@@ -59,14 +59,32 @@ export async function runCreate(
     );
   }
 
-  // 4. Resolve target directory
+  // 4. Resolve target directory and project name
   let targetDir: string;
-  if (nameArg.startsWith("/") || nameArg.startsWith("./") || nameArg.includes("/")) {
+  let projectName: string;
+
+  const isAtWorkspaceRoot = rootDir ? resolve(process.cwd()) === resolve(rootDir) : false;
+
+  if (nameArg === ".") {
+    // '.' 号：在当前目录展开，项目名取当前目录名
+    targetDir = process.cwd();
+    projectName = basename(targetDir);
+  } else if (isAbsolute(nameArg)) {
+    // 绝对路径：对应目录，项目名取最后一斜杠后的名称
+    targetDir = resolve(nameArg);
+    projectName = basename(targetDir);
+  } else if (nameArg.includes("/") || nameArg.includes("\\") || nameArg.startsWith(".")) {
+    // 相对路径：相对于当前目录，项目名取最后一斜杠后的名称
     targetDir = resolve(process.cwd(), nameArg);
-  } else if (rootDir && process.cwd() === rootDir && existsSync(join(rootDir, "apps"))) {
-    targetDir = join(rootDir, "apps", nameArg);
+    projectName = basename(targetDir);
+  } else if (isAtWorkspaceRoot) {
+    // 正好在根工作区：放到 apps 下面
+    targetDir = join(rootDir!, "apps", nameArg);
+    projectName = nameArg;
   } else {
+    // 默认在当前目录创建
     targetDir = resolve(process.cwd(), nameArg);
+    projectName = nameArg;
   }
 
   // 5. Load template configuration (for prompts and hooks)
@@ -113,7 +131,7 @@ export async function runCreate(
   // 7. Generate project
   console.log(
     pc.bold(
-      `\n🚀 Creating project ${pc.cyan(nameArg)} using template ${pc.green(
+      `\n🚀 Creating project ${pc.cyan(projectName)} using template ${pc.green(
         template.name
       )}...\n`
     )
@@ -121,7 +139,7 @@ export async function runCreate(
 
   try {
     const files = await generateProject({
-      projectName: nameArg.includes("/") ? nameArg.split("/").pop()! : nameArg,
+      projectName,
       targetDir,
       template,
       config,
@@ -132,7 +150,7 @@ export async function runCreate(
 
     console.log(
       pc.green(
-        `✔ Successfully created ${pc.bold(nameArg)} at ${pc.cyan(targetDir)} (${files.length} files)\n`
+        `✔ Successfully created ${pc.bold(projectName)} at ${pc.cyan(targetDir)} (${files.length} files)\n`
       )
     );
 
