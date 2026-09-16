@@ -1,9 +1,20 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve, relative } from "node:path";
 import { homedir } from "node:os";
 import { parse } from "yaml";
 import { loadLeomsConfig } from "./config.js";
 import type { WorkspaceContext } from "./types.js";
+
+/**
+ * Get workspace .leoms log directory: rootDir/.leoms/logs
+ */
+export function getWorkspaceLogDir(rootDir: string): string {
+  const dir = join(rootDir, ".leoms", "logs");
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
 
 /**
  * Find workspace root by looking upwards for pnpm-workspace.yaml or .leoms

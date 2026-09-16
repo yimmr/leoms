@@ -67,7 +67,7 @@ pub fn is_backend_alive(host: &str, port: u16) -> bool {
     TcpStream::connect_timeout(&socket, Duration::from_millis(300)).is_ok()
 }
 
-/// Discovers the active port: checks preferred_port first, then .leoms/ui.json, then probes 3200..=3209
+/// Discovers the active port: checks preferred_port first, then .leoms/logs/ui.json (or .leoms/ui.json), then probes 3200..=3209
 pub fn find_active_port(workspace_dir: Option<&str>, preferred_port: Option<u16>) -> u16 {
     // 0. If user specifically configured a preferred port, test it first
     if let Some(port) = preferred_port {
@@ -76,15 +76,20 @@ pub fn find_active_port(workspace_dir: Option<&str>, preferred_port: Option<u16>
         }
     }
 
-    // 1. Check workspace .leoms/ui.json metadata if workspace_dir exists
+    // 1. Check workspace .leoms/logs/ui.json metadata first, then fallback to legacy .leoms/ui.json
     if let Some(dir) = workspace_dir {
-        let meta_path = std::path::Path::new(dir).join(".leoms").join("ui.json");
-        if let Ok(content) = std::fs::read_to_string(&meta_path) {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(port) = val.get("port").and_then(|p| p.as_u64()) {
-                    let p16 = port as u16;
-                    if is_backend_alive("127.0.0.1", p16) {
-                        return p16;
+        let meta_candidates = [
+            std::path::Path::new(dir).join(".leoms").join("logs").join("ui.json"),
+            std::path::Path::new(dir).join(".leoms").join("ui.json"),
+        ];
+        for meta_path in &meta_candidates {
+            if let Ok(content) = std::fs::read_to_string(meta_path) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(port) = val.get("port").and_then(|p| p.as_u64()) {
+                        let p16 = port as u16;
+                        if is_backend_alive("127.0.0.1", p16) {
+                            return p16;
+                        }
                     }
                 }
             }

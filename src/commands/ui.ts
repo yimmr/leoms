@@ -34,48 +34,110 @@ export interface UiDaemonMeta {
   startedAt: number;
 }
 
-function getPidPath(rootDir: string): string {
-  const dir = join(rootDir, ".leoms");
+function getLogDir(rootDir: string): string {
+  const dir = join(rootDir, ".leoms", "logs");
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  return join(dir, "ui.pid");
+  return dir;
+}
+
+function getPidPath(rootDir: string): string {
+  return join(getLogDir(rootDir), "ui.pid");
 }
 
 function getMetaPath(rootDir: string): string {
-  const dir = join(rootDir, ".leoms");
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return join(dir, "ui.json");
+  return join(getLogDir(rootDir), "ui.json");
 }
 
 function getLogPath(rootDir: string): string {
-  const dir = join(rootDir, ".leoms");
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  return join(dir, "ui.log");
+  return join(getLogDir(rootDir), "ui.log");
+}
+
+function migrateLegacyFiles(rootDir: string): void {
+  try {
+    const logDir = getLogDir(rootDir);
+    const legacyLog = join(rootDir, ".leoms", "ui.log");
+    const targetLog = join(logDir, "ui.log");
+    if (existsSync(legacyLog) && !existsSync(targetLog)) {
+      renameSync(legacyLog, targetLog);
+    }
+    const legacyOld = join(rootDir, ".leoms", "ui.log.old");
+    const targetOld = join(logDir, "ui.log.old");
+    if (existsSync(legacyOld) && !existsSync(targetOld)) {
+      renameSync(legacyOld, targetOld);
+    }
+    const legacyJson = join(rootDir, ".leoms", "ui.json");
+    const targetJson = join(logDir, "ui.json");
+    if (existsSync(legacyJson) && !existsSync(targetJson)) {
+      renameSync(legacyJson, targetJson);
+    }
+    const legacyPid = join(rootDir, ".leoms", "ui.pid");
+    const targetPid = join(logDir, "ui.pid");
+    if (existsSync(legacyPid) && !existsSync(targetPid)) {
+      renameSync(legacyPid, targetPid);
+    }
+  } catch {}
 }
 
 function readDaemonMeta(rootDir: string): UiDaemonMeta | null {
   const metaPath = getMetaPath(rootDir);
-  if (!existsSync(metaPath)) return null;
-  try {
-    return JSON.parse(readFileSync(metaPath, "utf8"));
-  } catch {
-    return null;
+  if (existsSync(metaPath)) {
+    try {
+      return JSON.parse(readFileSync(metaPath, "utf8"));
+    } catch {}
+  }
+  const legacyMetaPath = join(rootDir, ".leoms", "ui.json");
+  if (existsSync(legacyMetaPath)) {
+    try {
+      return JSON.parse(readFileSync(legacyMetaPath, "utf8"));
+    } catch {}
+  }
+  return null;
+}
+
+function readDaemonPid(rootDir: string): number | null {
+  const pidPath = getPidPath(rootDir);
+  if (existsSync(pidPath)) {
+    try {
+      return parseInt(readFileSync(pidPath, "utf8").trim(), 10);
+    } catch {}
+  }
+  const legacyPidPath = join(rootDir, ".leoms", "ui.pid");
+  if (existsSync(legacyPidPath)) {
+    try {
+      return parseInt(readFileSync(legacyPidPath, "utf8").trim(), 10);
+    } catch {}
+  }
+  return null;
+}
+
+function cleanDaemonFiles(rootDir: string): void {
+  const paths = [
+    getPidPath(rootDir),
+    getMetaPath(rootDir),
+    join(rootDir, ".leoms", "ui.pid"),
+    join(rootDir, ".leoms", "ui.json"),
+  ];
+  for (const p of paths) {
+    if (existsSync(p)) {
+      try {
+        unlinkSync(p);
+      } catch {}
+    }
   }
 }
 
 function rotateLogIfNeeded(rootDir: string): void {
+  migrateLegacyFiles(rootDir);
   const logFile = getLogPath(rootDir);
+  const logDir = getLogDir(rootDir);
   if (existsSync(logFile)) {
     try {
       const stats = statSync(logFile);
       if (stats.size > 5 * 1024 * 1024) {
         // > 5MB
-        const oldFile = join(rootDir, ".leoms/ui.log.old");
+        const oldFile = join(logDir, "ui.log.old");
         if (existsSync(oldFile)) {
           unlinkSync(oldFile);
         }
@@ -180,6 +242,8 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
     process.exit(1);
   }
 
+  migrateLegacyFiles(rootDir);
+
   const pidPath = getPidPath(rootDir);
   const metaPath = getMetaPath(rootDir);
   const recordedMeta = readDaemonMeta(rootDir);
@@ -191,9 +255,9 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
 
   // 1. Handle "stop" action
   if (options.stop || subcommand === "stop") {
-    if (existsSync(pidPath)) {
+    const pid = readDaemonPid(rootDir);
+    if (pid) {
       try {
-        const pid = parseInt(readFileSync(pidPath, "utf8").trim(), 10);
         if (isProcessAlive(pid)) {
           process.kill(pid, "SIGTERM");
           // Wait briefly
@@ -205,15 +269,12 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
         } else {
           console.log(pc.yellow(`leoms workbench 进程已不存在，已清理残留标记。`));
         }
-        if (existsSync(pidPath)) unlinkSync(pidPath);
-        if (existsSync(metaPath)) unlinkSync(metaPath);
+        cleanDaemonFiles(rootDir);
       } catch (err: any) {
         console.error(pc.red(`停止服务失败: ${err.message}`));
       }
     } else {
-      if (existsSync(metaPath)) {
-        try { unlinkSync(metaPath); } catch {}
-      }
+      cleanDaemonFiles(rootDir);
       console.log(pc.gray("未检测到正在后台运行的 leoms workbench 守护进程。"));
     }
     process.exit(0);
@@ -222,17 +283,12 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
   // 2. Handle "status" action
   if (options.status || subcommand === "status") {
     let running = false;
-    let pid: number | null = null;
+    let pid = readDaemonPid(rootDir);
 
-    if (existsSync(pidPath)) {
-      try {
-        pid = parseInt(readFileSync(pidPath, "utf8").trim(), 10);
-        running = isProcessAlive(pid);
-        if (!running) {
-          unlinkSync(pidPath);
-          pid = null;
-        }
-      } catch {
+    if (pid) {
+      running = isProcessAlive(pid);
+      if (!running) {
+        cleanDaemonFiles(rootDir);
         pid = null;
       }
     }
@@ -244,8 +300,8 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
     if (running && healthy) {
       console.log(pc.green(`✔ leoms workbench 正在后台健康运行中 (PID: ${pid})`));
       console.log(pc.gray(`  服务地址: http://${activeHost}:${activePort}`));
-      console.log(pc.gray(`  元数据:   .leoms/ui.json`));
-      console.log(pc.gray(`  运行日志: .leoms/ui.log`));
+      console.log(pc.gray(`  元数据:   .leoms/logs/ui.json`));
+      console.log(pc.gray(`  运行日志: .leoms/logs/ui.log`));
       console.log(pc.gray(`  停止命令: leoms ui stop`));
     } else if (healthy) {
       console.log(pc.cyan(`ℹ 端口 ${activePort} 上有服务正在运行 (响应正常)，但不是作为后台守护进程启动。`));
@@ -259,21 +315,16 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
 
   // 3. Handle "daemon" start
   if (options.daemon) {
-    if (existsSync(pidPath)) {
-      try {
-        const pid = parseInt(readFileSync(pidPath, "utf8").trim(), 10);
-        if (isProcessAlive(pid)) {
-          const healthy = await checkHealth(host, port);
-          if (healthy) {
-            console.log(pc.green(`🦁 leoms workbench 已在后台运行中 (PID: ${pid}, http://${host}:${port})`));
-            process.exit(0);
-          }
+    const existingPid = readDaemonPid(rootDir);
+    if (existingPid) {
+      if (isProcessAlive(existingPid)) {
+        const healthy = await checkHealth(host, port);
+        if (healthy) {
+          console.log(pc.green(`🦁 leoms workbench 已在后台运行中 (PID: ${existingPid}, http://${host}:${port})`));
+          process.exit(0);
         }
-        unlinkSync(pidPath);
-      } catch {
-        // clean up corrupted pid file
-        try { unlinkSync(pidPath); } catch {}
       }
+      cleanDaemonFiles(rootDir);
     }
 
     // Check if port is already active
@@ -324,10 +375,10 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
     if (started) {
       console.log(pc.green(`✔ leoms workbench 已在后台成功启动 (PID: ${child.pid})`));
       console.log(pc.gray(`  🌐 服务地址: http://${host}:${actualDetectedPort}`));
-      console.log(pc.gray(`  📄 运行日志: .leoms/ui.log`));
+      console.log(pc.gray(`  📄 运行日志: .leoms/logs/ui.log`));
       console.log(pc.gray(`  🛑 停止命令: leoms ui stop\n`));
     } else {
-      console.log(pc.yellow(`leoms workbench 后台进程已创建 (PID: ${child.pid})，正在初始化，请查看 .leoms/ui.log`));
+      console.log(pc.yellow(`leoms workbench 后台进程已创建 (PID: ${child.pid})，正在初始化，请查看 .leoms/logs/ui.log`));
     }
     process.exit(0);
   }
@@ -341,13 +392,9 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
     const isAlreadyActive = await checkHealth(host, port);
     if (isAlreadyActive) {
       let pidStr = "";
-      if (existsSync(pidPath)) {
-        try {
-          const recordedPid = readFileSync(pidPath, "utf8").trim();
-          if (isProcessAlive(parseInt(recordedPid, 10))) {
-            pidStr = ` (PID: ${recordedPid})`;
-          }
-        } catch {}
+      const existingPid = readDaemonPid(rootDir);
+      if (existingPid && isProcessAlive(existingPid)) {
+        pidStr = ` (PID: ${existingPid})`;
       }
 
       console.log(pc.green(`\n✔ leoms workbench 服务已在运行中${pidStr}: http://${host}:${port}`));
@@ -410,19 +457,7 @@ export async function runUi(options: UiCommandOptions = {}, subcommand?: string)
       if (!options.internalDaemon) {
         console.log(pc.yellow("\nShutting down leoms workbench..."));
       }
-      try {
-        if (existsSync(pidPath)) {
-          const recorded = readFileSync(pidPath, "utf8").trim();
-          if (recorded === String(process.pid)) {
-            unlinkSync(pidPath);
-          }
-        }
-      } catch {}
-      try {
-        if (existsSync(metaPath)) {
-          unlinkSync(metaPath);
-        }
-      } catch {}
+      cleanDaemonFiles(rootDir);
       await server.close();
       process.exit(0);
     };
