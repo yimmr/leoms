@@ -68,8 +68,8 @@ export const WorkspaceInitWizard: React.FC<WorkspaceInitWizardProps> = ({
 
         {/* Header Icon & Title */}
         <div className="relative z-10 text-center space-y-3 mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-indigo-500/30 text-3xl shadow-lg mb-2">
-            🦁
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full overflow-hidden border border-indigo-500/30 shadow-lg shadow-indigo-500/20 mb-2">
+            <img src="/icon.png" alt="leoms" className="w-full h-full object-cover" />
           </div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />

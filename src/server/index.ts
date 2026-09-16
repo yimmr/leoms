@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { existsSync, createReadStream, statSync } from "node:fs";
-import { join, extname } from "node:path";
+import { existsSync, createReadStream, statSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { join, extname, dirname } from "node:path";
+import { homedir } from "node:os";
 import {
   getWorkspaceStatus,
   getProjects,
@@ -88,6 +89,27 @@ async function readBody<T = any>(req: IncomingMessage): Promise<T> {
   });
 }
 
+function getDesktopConfigPath(): string {
+  const home = homedir();
+  return join(home, ".config", "leoms", "desktop.json");
+}
+
+function readDesktopConfig(): Record<string, any> {
+  const p = getDesktopConfigPath();
+  if (existsSync(p)) {
+    try {
+      return JSON.parse(readFileSync(p, "utf8"));
+    } catch {}
+  }
+  return {};
+}
+
+function writeDesktopConfig(cfg: Record<string, any>): void {
+  const p = getDesktopConfigPath();
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, JSON.stringify(cfg, null, 2), "utf8");
+}
+
 export async function startServer(options: ServerOptions): Promise<ServerInstance> {
   const { rootDir, host = "localhost" } = options;
   const preferredPort = options.port || 3200;
@@ -135,6 +157,25 @@ export async function startServer(options: ServerOptions): Promise<ServerInstanc
             sendJson(res, result);
           } catch (err: any) {
             sendError(res, err.message || "Failed to initialize workspace", 500);
+          }
+          return;
+        }
+
+        // Desktop Settings Config
+        if (pathname === "/api/desktop/config" && req.method === "GET") {
+          sendJson(res, readDesktopConfig());
+          return;
+        }
+
+        if (pathname === "/api/desktop/config" && req.method === "POST") {
+          try {
+            const body = await readBody(req);
+            const current = readDesktopConfig();
+            const updated = { ...current, ...body };
+            writeDesktopConfig(updated);
+            sendJson(res, { success: true, config: updated });
+          } catch (err: any) {
+            sendError(res, err.message || "Failed to save desktop config", 500);
           }
           return;
         }

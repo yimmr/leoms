@@ -22,6 +22,7 @@ export interface DeployCommandOptions {
   skipBuild?: boolean;
   dryRun?: boolean;
   script?: string;
+  opt?: Record<string, string>;
 }
 
 export async function runDeploy(
@@ -75,12 +76,28 @@ export async function runDeploy(
   const activeScript = options.script || configDeploy.script;
   const activeEnv = options.env || configDeploy.env;
 
+  // Resolve custom options (leoms.yml deploy.options overridden by CLI --opt)
+  const combinedOptions: Record<string, any> = {
+    ...(configDeploy.options || {}),
+    ...(options.opt || {}),
+  };
+
+  const optionsEntries = Object.entries(combinedOptions);
+  const optionsCount = optionsEntries.length;
+
   const envDisplay = activeEnv ? ` (${msg("目标环境", "Target Env")}: ${pc.green(activeEnv)})` : "";
   console.log(
     `${pc.cyan(msg("● 目标项目:", "● Target Project:"))} ${pc.bold(targetProj.name)} ${pc.dim(
       `(${targetProj.relativeDir})`
-    )} [${pc.magenta(targetProj.packageManager)}]${envDisplay}\n`
+    )} [${pc.magenta(targetProj.packageManager)}]${envDisplay}`
   );
+  if (optionsCount > 0) {
+    const optsStr = optionsEntries
+      .map(([k, v]) => `${pc.cyan(k)}=${pc.yellow(typeof v === "object" ? JSON.stringify(v) : String(v))}`)
+      .join(", ");
+    console.log(pc.dim(`  • ${msg("自定义选项 (options):", "Custom Options:")} ${optsStr}`));
+  }
+  console.log();
 
   // 2. Step 1: Pre-flight Full Health & Standalone Gatekeeper
   if (!options.skipCheck) {
@@ -181,19 +198,62 @@ export async function runDeploy(
     scriptArgs.push(activeEnv);
   }
 
+  // Build temporary environment variables for the deployment script:
+  // 1. Context variables
+  const injectedEnv: Record<string, string> = {
+    LEOMS_PROJECT_NAME: targetProj.name,
+    LEOMS_PROJECT_PATH: targetProj.path,
+    LEOMS_PROJECT_REL: targetProj.relativeDir,
+    LEOMS_WORKSPACE_ROOT: rootDir,
+  };
+  if (activeEnv) {
+    injectedEnv.LEOMS_DEPLOY_ENV = activeEnv;
+  }
+
+  // 2. Custom options mapped to LEOMS_OPT_*
+  const customEnvKeys: string[] = [];
+  for (const [k, v] of optionsEntries) {
+    const normalizedKey = k
+      .replace(/([a-z])([A-Z])/g, "$1_$2")
+      .replace(/[-\.]/g, "_")
+      .toUpperCase();
+    const envVarName = `LEOMS_OPT_${normalizedKey}`;
+    const stringVal = typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
+    injectedEnv[envVarName] = stringVal;
+    customEnvKeys.push(`${envVarName}="${stringVal}"`);
+  }
+
+  // 3. Full JSON payload for structured consumers
+  if (optionsCount > 0) {
+    injectedEnv.LEOMS_DEPLOY_OPTIONS = JSON.stringify(combinedOptions);
+  }
+
   if (isDryRun) {
     console.log(pc.yellow(msg("💡 模拟预览 (DRY-RUN)：实际部署脚本不会被执行。", "💡 DRY-RUN simulation: Script will not be executed.")));
     console.log(pc.dim(`  ${msg("拟执行命令:", "Would execute:")} ${deployScriptPath} ${scriptArgs.join(" ")}`));
+    if (customEnvKeys.length > 0) {
+      console.log(pc.dim(`  ${msg("拟注入临时环境变量:", "Injected Env Vars:")}`));
+      for (const envItem of customEnvKeys) {
+        console.log(pc.dim(`    • ${envItem}`));
+      }
+      console.log(pc.dim(`    • LEOMS_DEPLOY_OPTIONS='${injectedEnv.LEOMS_DEPLOY_OPTIONS}'`));
+    }
     console.log(pc.green(msg("\n🎉 部署全流程模拟演练通过！\n", "\n🎉 Deployment simulation completed successfully!\n")));
     return;
   }
 
   console.log(pc.cyan(`➜ Invoking deploy script: ${pc.bold(deployScriptPath)}`));
-  console.log(pc.dim(`  Args: [${scriptArgs.join(", ")}]\n`));
+  console.log(pc.dim(`  Args: [${scriptArgs.join(", ")}]`));
+  if (customEnvKeys.length > 0) {
+    console.log(pc.dim(`  Env:  [${customEnvKeys.join(", ")}]\n`));
+  } else {
+    console.log();
+  }
 
   try {
     const { exitCode } = await spawnCommand("bash", [deployScriptPath, ...scriptArgs], {
       cwd: targetProj.path,
+      env: injectedEnv,
       stdio: "inherit",
     });
 

@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Terminal,
   Layers,
+  Settings,
 } from "lucide-react";
 import { useTheme, type Theme } from "../context/ThemeContext.js";
 import type { WorkspaceStatusResponse } from "../api/client.js";
@@ -27,6 +28,7 @@ interface HeaderProps {
   activeStatusFilter?: string;
   onToggleStatusFilter?: (status: string) => void;
   onOpenWizard?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -39,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeStatusFilter = "all",
   onToggleStatusFilter,
   onOpenWizard,
+  onOpenSettings,
 }) => {
   const { theme, setTheme } = useTheme();
 
@@ -62,12 +65,12 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header className="apple-glass sticky top-3 z-30 mb-6 mt-3 px-4 sm:px-6 py-3 rounded-2xl flex items-center justify-between gap-4 transition-all">
+    <header className="apple-glass sticky top-3 z-30 mb-6 mt-3 px-3.5 sm:px-5 py-2.5 rounded-2xl flex items-center justify-between gap-2 sm:gap-4 transition-all">
       {/* 1. Left: Brand & Workspace */}
-      <div className="flex items-center gap-3.5 shrink-0">
+      <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-sky-400 via-indigo-500 to-purple-600 flex items-center justify-center text-lg shadow-[0_2px_12px_rgba(56,189,248,0.35)] select-none shrink-0">
-            🦁
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden shadow-[0_2px_12px_rgba(56,189,248,0.25)] select-none shrink-0 border border-sky-400/30 flex items-center justify-center">
+            <img src="/icon.png" alt="leoms" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -86,11 +89,11 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenWizard}
-            className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-glass)] text-xs text-[var(--text-secondary)] hover:text-sky-400 font-mono transition-colors cursor-pointer group"
+            className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-glass)] text-xs text-[var(--text-secondary)] hover:text-sky-400 font-mono transition-colors cursor-pointer group"
             title={`当前工作区: ${status.rootDir}\n点击打开工作区初始化/配置向导`}
           >
             <FolderGit2 size={13} className="text-sky-400 group-hover:scale-110 transition-transform" />
-            <span className="truncate max-w-[240px]" title={status.rootDir}>
+            <span className="truncate max-w-[200px]" title={status.rootDir}>
               {status.rootDir.split("/").slice(-2).join("/")}
             </span>
           </button>
@@ -98,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* 2. Center: Apple macOS Unified Segmented Navigation */}
-      <nav className="apple-segmented-control hidden md:inline-flex">
+      <nav className="apple-segmented-control hidden md:inline-flex shrink min-w-0">
         {tabs.map((tab) => {
           const isActive = currentTab === tab.key;
           return (
@@ -108,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`apple-segmented-item ${isActive ? "active" : ""}`}
             >
               {tab.icon}
-              <span className="text-xs sm:text-sm font-medium">{tab.label}</span>
+              <span className="text-xs sm:text-sm font-medium hidden lg:inline">{tab.label}</span>
               {typeof tab.badge === "number" && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500 text-white shadow-sm">
                   {tab.badge}
@@ -119,17 +122,17 @@ export const Header: React.FC<HeaderProps> = ({
         })}
       </nav>
 
-      {/* 3. Right: Status & Theme & Refresh */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      {/* 3. Right: Status & Theme & Refresh & Settings Toolbar */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {status && (
-          <div className="hidden sm:flex items-center gap-2 text-xs mr-1">
+          <div className="hidden xl:flex items-center gap-2 text-xs mr-0.5">
             {status.stats.dirtyGitRepos > 0 ? (
               <span
                 onClick={() => {
                   if (currentTab !== "dashboard") onTabChange("dashboard");
                   onToggleStatusFilter?.(activeStatusFilter === "dirty" ? "all" : "dirty");
                 }}
-                className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400 font-semibold px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 cursor-pointer select-none"
+                className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400 font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 cursor-pointer select-none"
                 title={`点击筛选待提交项目 (${status.stats.dirtyGitRepos})`}
               >
                 <AlertTriangle size={13} />
@@ -141,7 +144,7 @@ export const Header: React.FC<HeaderProps> = ({
                   if (currentTab !== "dashboard") onTabChange("dashboard");
                   onToggleStatusFilter?.(activeStatusFilter === "clean" ? "all" : "clean");
                 }}
-                className="flex items-center gap-1.5 text-emerald-500 dark:text-emerald-400 font-semibold px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 cursor-pointer select-none"
+                className="flex items-center gap-1.5 text-emerald-500 dark:text-emerald-400 font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 cursor-pointer select-none"
                 title="点击筛选洁净项目"
               >
                 <ShieldCheck size={13} />
@@ -151,24 +154,25 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
+        {/* Refresh Icon Button */}
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="apple-glass-button text-xs py-2 px-3"
+          className="w-8 h-8 rounded-xl flex items-center justify-center bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-glass)] text-[var(--text-secondary)] hover:text-sky-400 shadow-sm transition-all cursor-pointer active:scale-95 disabled:opacity-50 shrink-0"
           title="刷新工作区数据"
         >
           <RefreshCw size={14} className={loading ? "animate-spin text-sky-400" : ""} />
         </button>
 
         {/* 3-state Theme Switcher */}
-        <div className="apple-segmented-control">
+        <div className="apple-segmented-control shrink-0">
           {themeOptions.map((opt) => {
             const active = theme === opt.key;
             return (
               <button
                 key={opt.key}
                 onClick={() => setTheme(opt.key)}
-                className={`apple-segmented-item py-1.5 px-2.5 text-xs ${active ? "active" : ""}`}
+                className={`apple-segmented-item py-1.5 px-2 text-xs ${active ? "active" : ""}`}
                 title={`切换为${opt.label}主题`}
               >
                 {opt.icon}
@@ -176,6 +180,16 @@ export const Header: React.FC<HeaderProps> = ({
             );
           })}
         </div>
+
+        {/* Settings Icon Button */}
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="w-8 h-8 rounded-xl flex items-center justify-center bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-glass)] text-[var(--text-secondary)] hover:text-sky-400 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
+          title="应用设置 (Settings)"
+        >
+          <Settings size={14} />
+        </button>
       </div>
     </header>
   );

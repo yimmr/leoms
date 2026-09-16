@@ -162,6 +162,7 @@ export interface LocaleSchema {
         skipBuild: string;
         script: string;
         dryRun: string;
+        opt: string;
       };
     };
     ui: {

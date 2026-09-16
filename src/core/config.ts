@@ -33,7 +33,11 @@ export function loadLeomsConfig(rootDir: string): { config: LeomsConfig; configF
           return {
             config: {
               locale,
-              deploy: { ...DEFAULT_CONFIG.deploy, ...parsed.deploy },
+              deploy: {
+                ...DEFAULT_CONFIG.deploy,
+                ...parsed.deploy,
+                options: parsed.deploy?.options && typeof parsed.deploy.options === "object" ? parsed.deploy.options : undefined,
+              },
               release: { ...DEFAULT_CONFIG.release, ...parsed.release },
               categories: parsed.categories && typeof parsed.categories === "object" ? parsed.categories : undefined,
             },

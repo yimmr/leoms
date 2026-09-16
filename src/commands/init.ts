@@ -130,9 +130,14 @@ build/
       const leomsYmlContent = `# leoms.yml - 仅定义项目个性化扩展项，其余包目录与工作区配置均从 pnpm-workspace.yaml 与 .leoms/composer 推导
 
 # 部署配置（默认环境为 production，可通过 --env 覆盖；未配置 script 时自动探测 tools/deploy.sh 或 <project>/scripts/deploy.sh）
+# 自定义选项（options）将在执行时注入为 LEOMS_OPT_* 临时环境变量，运行完毕自动销毁
 deploy:
   env: production
   # script: tools/deploy.sh
+  # options:
+  #   host: hdus
+  #   remote_root: ~/sites
+  #   sync_db: true
 
 # 发版配置（默认推送 origin；开源多仓库可在此添加特定远端）
 release:

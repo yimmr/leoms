@@ -23,6 +23,7 @@ export interface LeomsConfig {
   deploy?: {
     env?: string;
     script?: string;
+    options?: Record<string, any>;
   };
   release?: {
     remotes?: string[];

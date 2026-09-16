@@ -164,6 +164,7 @@ export const zh: LocaleSchema = {
         skipBuild: "跳过部署前的产物编译构建步骤",
         script: "显式指定部署脚本路径（覆盖 leoms.yml 中的 deploy.script）",
         dryRun: "模拟部署流程，不实际执行脚本",
+        opt: "自定义部署配置选项（支持 key=value，可多次指定，注入为 LEOMS_OPT_* 临时环境变量）",
       },
     },
     ui: {

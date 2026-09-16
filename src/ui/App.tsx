@@ -1,185 +1,147 @@
 import React, { useState, useEffect } from "react";
-import { Header } from "./components/Header.js";
-import { Navigation, type NavTab } from "./components/Navigation.js";
-import { DashboardView } from "./components/DashboardView.js";
-import { TopologyView } from "./components/TopologyView.js";
-import { GatekeeperView } from "./components/GatekeeperView.js";
-import { ConsoleView } from "./components/ConsoleView.js";
-import { IsolationView } from "./components/IsolationView.js";
-import { WorkspaceInitWizard } from "./components/WorkspaceInitWizard.js";
-import { fetchStatus, type WorkspaceStatusResponse, type ProjectModel } from "./api/client.js";
+import { Loader2 } from "lucide-react";
+import { OnboardingView } from "./components/OnboardingView.js";
+import { Workbench } from "./components/Workbench.js";
+import { fetchStatus, setApiPort, type WorkspaceStatusResponse } from "./api/client.js";
+import {
+  getDesktopSettings,
+  saveDesktopSettings,
+  type DesktopSettings,
+} from "./utils/desktop.js";
+
+type AppLifecycleState = "checking" | "onboarding" | "workbench";
 
 export const App: React.FC = () => {
-  const [status, setStatus] = useState<WorkspaceStatusResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [currentTab, setCurrentTab] = useState<NavTab>("dashboard");
-  const [showWizard, setShowWizard] = useState<boolean>(false);
-
-  // Cross-view navigation state
-  const [topologyTarget, setTopologyTarget] = useState<string | undefined>(undefined);
-  const [consoleAction, setConsoleAction] = useState<string | undefined>(undefined);
-  const [consoleTarget, setConsoleTarget] = useState<string | undefined>(undefined);
-  const [gatekeeperTarget, setGatekeeperTarget] = useState<string | undefined>(undefined);
-
-  const [error, setError] = useState<string | null>(null);
-  const [activeStatusFilter, setActiveStatusFilter] = useState<string>("all");
-  const [activeStandaloneFilter, setActiveStandaloneFilter] = useState<string>("all");
-
-  const [loadingMessage, setLoadingMessage] = useState<string>("正在连接 leoms 核心服务...");
+  const [appState, setAppState] = useState<AppLifecycleState>("checking");
+  const [desktopConfig, setDesktopConfig] = useState<DesktopSettings | null>(null);
 
   useEffect(() => {
-    loadWorkspaceStatus();
+    checkEnvironment();
   }, []);
 
-  const loadWorkspaceStatus = async () => {
-    setLoading(true);
-    setError(null);
-    setLoadingMessage("正在连接 leoms 核心服务...");
+  const checkEnvironment = async () => {
+    setAppState("checking");
 
-    // 自动重试与平滑等待机制：最多持续 10 次，每次间隔 800ms（总计约 8 秒）
-    // 桌面端在唤醒 WSL 后台守护进程期间将优雅轮询，避免秒崩报错
-    const maxAttempts = 10;
-    let lastError = "";
+    let cfg: DesktopSettings = {
+      port: 3200,
+      auto_start: true,
+    };
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        if (attempt > 2) {
-          setLoadingMessage(`正在自动唤醒后台核心服务，请稍候 (${attempt}/${maxAttempts})...`);
+    try {
+      cfg = await getDesktopSettings();
+    } catch {
+      // ignore
+    }
+
+    if (cfg.port) {
+      setApiPort(cfg.port);
+    }
+
+    // 1. 优先探测当前是否有活跃的伴生服务
+    let liveStatus: WorkspaceStatusResponse | null = null;
+    try {
+      liveStatus = await fetchStatus();
+    } catch {
+      // 若当前配置端口不同于 3200 且探测失败，尝试默认 3200 端口
+      if (cfg.port && cfg.port !== 3200) {
+        setApiPort(3200);
+        try {
+          liveStatus = await fetchStatus();
+        } catch {
+          setApiPort(cfg.port);
         }
-        const res = await fetchStatus();
-        setStatus(res);
-        setError(null);
-        setLoading(false);
-        return;
-      } catch (err: any) {
-        lastError = err.message || "无法连接到后台服务";
-        if (attempt === maxAttempts) break;
-        await new Promise((r) => setTimeout(r, 800));
       }
     }
 
-    // 只有在全部轮询耗尽后，才认定为真正的边界异常并展示错误卡片
-    console.error("Failed to connect after retries:", lastError);
-    setError(lastError);
-    setLoading(false);
+    // 2. 活跃服务自愈判定：如果伴生服务存活，且已知有效工作区
+    if (liveStatus && liveStatus.rootDir) {
+      // 静默自动补全恢复 desktop.json
+      if (!cfg.initialized || !cfg.workspace_path) {
+        const healedCfg: DesktopSettings = {
+          workspace_path: liveStatus.rootDir,
+          port: cfg.port || 3200,
+          auto_start: cfg.auto_start !== undefined ? cfg.auto_start : true,
+          initialized: true,
+          theme: cfg.theme || "system",
+          language: cfg.language || "zh",
+        };
+        try {
+          await saveDesktopSettings(healedCfg);
+          cfg = healedCfg;
+        } catch {}
+      }
+      setDesktopConfig(cfg);
+      setAppState("workbench");
+      return;
+    }
+
+    // 3. 伴生服务未连通：检查本地是否已有明确的工作区路径
+    const hasKnownWorkspace = Boolean(cfg.workspace_path && cfg.workspace_path.trim());
+
+    // 4. “如果伴生服务和工作区目录，二者中，有一个无法确定，应该弹出引导”
+    if (!hasKnownWorkspace) {
+      setDesktopConfig(cfg);
+      setAppState("onboarding");
+      return;
+    }
+
+    // 工作区已明确，直接进入主工作台进行连接与自动拉起
+    setDesktopConfig(cfg);
+    setAppState("workbench");
   };
 
-  const handleSelectProjectForTopology = (projectName: string) => {
-    setTopologyTarget(projectName);
-    setCurrentTab("topology");
+  const handleOnboardingComplete = (saved: DesktopSettings) => {
+    setDesktopConfig(saved);
+    if (saved.port) {
+      setApiPort(saved.port);
+    }
+    // 完成引导后，直接进入工作台
+    setAppState("workbench");
   };
 
-  const handleRunProjectTask = (action: string, projectName: string) => {
-    setConsoleAction(action);
-    setConsoleTarget(projectName);
-    setCurrentTab("console");
-  };
-
-  const handleRunCheckOnProject = (projectName: string) => {
-    setGatekeeperTarget(projectName);
-    setCurrentTab("gatekeeper");
-  };
-
-  const allProjects: ProjectModel[] = status ? Object.values(status.categories).flat() : [];
-  const isUninitialized =
-    status !== null &&
-    !status.hasPnpmWorkspace &&
-    !status.hasComposerWorkspace &&
-    !status.hasLeomsConfig &&
-    status.stats.totalProjects === 0;
-
-  return (
-    <div className="relative min-h-screen pb-16">
-      {/* 1. Apple Ambient Background Mesh Glows */}
-      <div className="ambient-container" aria-hidden="true">
-        <div className="ambient-blob blob-1"></div>
-        <div className="ambient-blob blob-2"></div>
-        <div className="ambient-blob blob-3"></div>
+  // 1. 全屏静默环境检测态
+  if (appState === "checking") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center relative p-4 select-none">
+        <div className="ambient-container" aria-hidden="true">
+          <div className="ambient-blob blob-1"></div>
+          <div className="ambient-blob blob-2"></div>
+        </div>
+        <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+          <div className="w-14 h-14 rounded-full overflow-hidden shadow-xl shadow-sky-500/25 border border-sky-400/30 animate-pulse flex items-center justify-center">
+            <img src="/icon.png" alt="leoms" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex items-center gap-2.5 text-xs text-[var(--text-muted)] font-medium">
+            <Loader2 size={15} className="animate-spin text-sky-400" />
+            <span>正在检测运行环境与伴生服务...</span>
+          </div>
+        </div>
       </div>
+    );
+  }
 
-      <div className="max-w-[1780px] 2xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-10">
-        {/* Unified Apple Studio Header with Segmented Navigation & Theme Switcher */}
-        <Header
-          status={status}
-          loading={loading}
-          onRefresh={loadWorkspaceStatus}
-          currentTab={currentTab}
-          onTabChange={setCurrentTab}
-          activeStatusFilter={activeStatusFilter}
-          onToggleStatusFilter={(newStatus) => {
-            setActiveStatusFilter(newStatus);
-            if (currentTab !== "dashboard") setCurrentTab("dashboard");
-          }}
-          onOpenWizard={() => setShowWizard(true)}
+  // 2. 独立纯净引导态（完全不挂载工作台，无任何代码与状态污染）
+  if (appState === "onboarding") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 relative">
+        <div className="ambient-container" aria-hidden="true">
+          <div className="ambient-blob blob-1"></div>
+          <div className="ambient-blob blob-2"></div>
+          <div className="ambient-blob blob-3"></div>
+        </div>
+        <OnboardingView
+          initialSettings={desktopConfig || undefined}
+          onComplete={handleOnboardingComplete}
         />
-
-        {/* 4. Main Workspace View Container */}
-        <main className="relative">
-          {isUninitialized || showWizard ? (
-            <WorkspaceInitWizard
-              rootDir={status?.rootDir}
-              status={status}
-              onInitialized={() => {
-                setShowWizard(false);
-                loadWorkspaceStatus();
-              }}
-              onRetry={() => {
-                setShowWizard(false);
-                loadWorkspaceStatus();
-              }}
-            />
-          ) : (
-            <>
-              {currentTab === "dashboard" && (
-                <DashboardView
-                  status={status}
-                  error={error}
-                  loading={loading}
-                  loadingMessage={loadingMessage}
-                  onRetry={loadWorkspaceStatus}
-                  onSelectProjectForTopology={handleSelectProjectForTopology}
-                  onRunProjectTask={handleRunProjectTask}
-                  onRunCheckOnProject={handleRunCheckOnProject}
-                  activeStatus={activeStatusFilter}
-                  onStatusChange={setActiveStatusFilter}
-                  activeStandalone={activeStandaloneFilter}
-                  onStandaloneChange={setActiveStandaloneFilter}
-                />
-              )}
-
-              {currentTab === "topology" && (
-                <TopologyView
-                  initialSelectedProject={topologyTarget}
-                  onRunTask={(action, target) => handleRunProjectTask(action, target || "")}
-                />
-              )}
-
-              {currentTab === "gatekeeper" && (
-                <GatekeeperView initialTargetProject={gatekeeperTarget} />
-              )}
-
-              {currentTab === "console" && (
-                <ConsoleView
-                  projects={allProjects}
-                  status={status}
-                  presetAction={consoleAction}
-                  presetTarget={consoleTarget}
-                />
-              )}
-
-              {currentTab === "isolation" && <IsolationView />}
-            </>
-          )}
-        </main>
-
-        {/* 5. Sleek Minimal Footer */}
-        <footer className="mt-16 text-center text-xs text-[var(--text-muted)] font-medium space-y-1.5 pb-8">
-          <p className="text-sm font-semibold">🦁 leoms • Lean Ecosystem Orchestrator & Multi-repo Suite</p>
-          <p className="text-xs opacity-75">
-            Native-first • 100% Standalone Hygiene • Composer Dual-Layer Isolation
-          </p>
-        </footer>
       </div>
-    </div>
+    );
+  }
+
+  // 3. 实际应用工作台态（引导未激活时直接进入，包含全部主应用功能）
+  return (
+    <Workbench
+      initialConfig={desktopConfig || { port: 3200, auto_start: true }}
+      onReconfigure={() => setAppState("onboarding")}
+    />
   );
 };

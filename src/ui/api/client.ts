@@ -156,19 +156,30 @@ export function isTauri(): boolean {
   );
 }
 
+let activePortOverride: number | null = null;
+
+export function setApiPort(port: number | null): void {
+  activePortOverride = port;
+  if (port && typeof window !== "undefined") {
+    try {
+      window.localStorage?.setItem("leoms_api_port", String(port));
+    } catch {}
+  }
+}
+
 export function getApiBase(): string {
   if (typeof window !== "undefined") {
+    const override = activePortOverride;
+    const storedPort = override ? String(override) : window.localStorage?.getItem("leoms_api_port");
+    const port = storedPort ? parseInt(storedPort, 10) : 3200;
+
     // 1. 如果在 Tauri 桌面端运行（无论是 dev 预览还是安装包产物），直连本地后端
     if (isTauri()) {
-      const storedPort = window.localStorage?.getItem("leoms_api_port");
-      const port = storedPort ? parseInt(storedPort, 10) : 3200;
       return `http://127.0.0.1:${port}/api`;
     }
 
     // 2. 如果在前端独立开发环境（如 Vite 5173 端口）
     if (window.location.port === "5173") {
-      const storedPort = window.localStorage?.getItem("leoms_api_port");
-      const port = storedPort ? parseInt(storedPort, 10) : 3200;
       const host = window.location.hostname === "localhost" ? "127.0.0.1" : (window.location.hostname || "127.0.0.1");
       return `http://${host}:${port}/api`;
     }
@@ -181,7 +192,12 @@ export function getApiBase(): string {
   return "http://127.0.0.1:3200/api";
 }
 
-export const API_BASE = getApiBase();
+// 动态兼容现有的字符串模板插值 `${API_BASE}/...`
+export const API_BASE = {
+  toString: () => getApiBase(),
+  valueOf: () => getApiBase(),
+  [Symbol.toPrimitive]: () => getApiBase(),
+} as unknown as string;
 
 export interface WorkspaceMetaResponse {
   rootDir: string;

@@ -136,6 +136,11 @@ deploy:
   env: production
   # 自定义默认部署脚本路径 (可被项目专属 scripts/deploy.sh 覆盖)
   script: tools/deploy.sh
+  # 自定义部署选项（运行时自动注入为 LEOMS_OPT_* 临时子进程环境变量，退出即销毁）
+  options:
+    host: hdus
+    remote_root: ~/sites
+    sync_db: true
 
 # 发版与 Git Tag 约定
 release:
@@ -333,6 +338,11 @@ release:
   - `--skip-build`：跳过部署前构建步骤。
   - `-s, --script <path>`：显式指定部署脚本路径（覆盖 `leoms.yml`）。
   - `-d, --dry-run`：模拟部署流程，不实际执行脚本。
+  - `-o, --opt <key=val>`：自定义部署配置选项（支持多次指定，可临时覆盖 `leoms.yml` 中的 `deploy.options`，如 `-o host=custom -o sync_db=false`）。
+- **临时环境变量注入机制**：
+  - 调度部署脚本时，`leoms.yml` 中的 `deploy.options`（及 CLI `-o` 覆盖项）将自动转化为 `LEOMS_OPT_*` 环境变量注入子进程（如 `remote_root` 自动转为 `LEOMS_OPT_REMOTE_ROOT`），并注入全量 JSON 变量 `LEOMS_DEPLOY_OPTIONS`。
+  - **零系统污染保障**：仅在脚本子进程生命周期内有效，脚本执行完毕随进程彻底销毁，不污染宿主机器与外部 Shell 环境。
+  - **脚本端原生接收**：Bash 脚本原生使用 `${LEOMS_OPT_HOST:-默认值}` 即可接收，未传入时自动回退默认值。
 
 ### 6. 可视化工作台与桌面 Studio (Visual Studio & Desktop Hub)
 

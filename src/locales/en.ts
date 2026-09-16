@@ -164,6 +164,7 @@ export const en: LocaleSchema = {
         skipBuild: "Bypass build step before deploying",
         script: "Specify explicit deploy script path (overrides leoms.yml deploy.script)",
         dryRun: "Simulate deployment without executing scripts",
+        opt: "Custom deploy options (key=value format, can be repeated, injected as LEOMS_OPT_* temporary env vars)",
       },
     },
     ui: {

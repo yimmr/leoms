@@ -395,6 +395,22 @@ if (process.argv[2] === "composer" || process.argv[2] === "c") {
     .option("--skip-build", t("commands.deploy.options.skipBuild"))
     .option("-s, --script <path>", t("commands.deploy.options.script"))
     .option("-d, --dry-run", t("commands.deploy.options.dryRun"))
+    .option(
+      "-o, --opt <key=val>",
+      t("commands.deploy.options.opt"),
+      (val: string, acc: Record<string, string> = {}) => {
+        const eqIdx = val.indexOf("=");
+        if (eqIdx !== -1) {
+          const k = val.slice(0, eqIdx).trim();
+          const v = val.slice(eqIdx + 1).trim();
+          if (k) acc[k] = v;
+        } else {
+          acc[val.trim()] = "true";
+        }
+        return acc;
+      },
+      {}
+    )
     .action(async (target?: string, options?: DeployCommandOptions) => {
       try {
         await runDeploy(target, options || {});
